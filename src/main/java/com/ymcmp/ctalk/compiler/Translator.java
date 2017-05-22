@@ -190,7 +190,7 @@ public class Translator extends GrammarBaseVisitor<String> {
 
     @Override
     public String visitDefFunction(GrammarParser.DefFunctionContext ctx) {
-        final String retType = ctx.r == null ? "void" : visit(ctx.r);
+        final String retType = ctx.r == null ? "void %s" : visit(ctx.r);
         final String tmp = textBuf.toString();
         textBuf.setLength(0);
         locals.add(new ArrayDeque<>());
@@ -205,7 +205,7 @@ public class Translator extends GrammarBaseVisitor<String> {
         }
         textBuf.setLength(0);
         textBuf.append(tmp);
-        final String proto = retType + "\n" + name + " " + params;
+        final String proto = String.format(retType, name + " " + params);
         String ret = "";
         switch (procState) {
         case GEN_SYM:
@@ -256,51 +256,86 @@ public class Translator extends GrammarBaseVisitor<String> {
         final StringBuilder sb = new StringBuilder();
         for (int i = 0; i < ctx.getChildCount() - 2; i += 2) {
             final String pname = ctx.getChild(i).getText();
-            sb.append("_C0").append(pname);
-            locals.peek().add(sb.toString());
+            final String iname = "_C0" + pname;
+            locals.peek().add(iname);
             textBuf.append('_').append(pname);
-            sb.insert(0, ' ').insert(0, ts).append(',');
+            sb.append(String.format(ts, iname)).append(',');
         }
         return sb.deleteCharAt(sb.length() - 1).toString();
     }
 
     @Override
-    public String visitRetType(GrammarParser.RetTypeContext ctx) {
+    public String visitValueRetType(GrammarParser.ValueRetTypeContext ctx) {
         return visit(ctx.getChild(1));
     }
 
     @Override
+    public String visitVoidRetType(GrammarParser.VoidRetTypeContext ctx) {
+        return "void %s";
+    }
+
+    @Override
     public String visitPrimTypeId(GrammarParser.PrimTypeIdContext ctx) {
-        return ctx.getText();
+        return ctx.getText() + " %s";
     }
 
     @Override
     public String visitNsTypeId(GrammarParser.NsTypeIdContext ctx) {
         mangleScheme = MangleScheme.INTERNAL;
-        return visit(ctx.n);
+        return visit(ctx.n) + " %s";
     }
 
     @Override
     public String visitPtrTypeId(GrammarParser.PtrTypeIdContext ctx) {
-        return visit(ctx.t) + "*";
+        if (ctx.c != null) {
+            final String size = visit(ctx.c);
+            return String.format(visit(ctx.t), "(%s)[" + size + "]");
+        }
+        return String.format(visit(ctx.t), "* %s");
+    }
+
+    @Override
+    public String visitArrayBounds(GrammarParser.ArrayBoundsContext ctx) {
+        final String part = visit(ctx.getChild(0));
+        if (ctx.getChildCount() > 1) {
+            return part + "][" + visit(ctx.getChild(2));
+        }
+        return part;
+    }
+
+    @Override
+    public String visitIntArrBound(GrammarParser.IntArrBoundContext ctx) {
+        final String size = ctx.getText();
+        if (size.charAt(0) == '-') {
+            throw new RuntimeException("Arrays cannot have negative size: " + ctx.getText());
+        }
+        return size;
+    }
+
+    @Override
+    public String visitVarArrBound(GrammarParser.VarArrBoundContext ctx) {
+        mangleScheme = MangleScheme.INTERNAL;
+        return visit(ctx.getChild(0));
     }
 
     @Override
     public String visitBasicTypeId(GrammarParser.BasicTypeIdContext ctx) {
-        final StringBuilder sb = new StringBuilder();
-        sb.append(visit(ctx.t));
+        final StringBuilder mod = new StringBuilder();
         if (ctx.c != null) {
-            sb.append(" const");
+            mod.append(" const");
         }
         if (ctx.v != null) {
-            sb.append(" volatile");
+            mod.append(" volatile");
         }
-        return sb.toString();
+        if (mod.length() == 0) {
+            return visit(ctx.t);
+        }
+        return String.format(visit(ctx.t), mod.append(" %s").toString());
     }
 
     @Override
     public String visitVconstTypeId(GrammarParser.VconstTypeIdContext ctx) {
-        return visit(ctx.t) + " const volatile";
+        return String.format(visit(ctx.t), " const volatile %s");
     }
 
     @Override
@@ -405,7 +440,7 @@ public class Translator extends GrammarBaseVisitor<String> {
 
     @Override
     public String visitCastExpr(GrammarParser.CastExprContext ctx) {
-        return "((" + visit(ctx.t) + ")" + visit(ctx.e) + ")";
+        return "((" + String.format(visit(ctx.t), "") + ")" + visit(ctx.e) + ")";
     }
 
     @Override
@@ -538,7 +573,7 @@ public class Translator extends GrammarBaseVisitor<String> {
 
     @Override
     public String visitDefExternFunction(GrammarParser.DefExternFunctionContext ctx) {
-        final String retType = ctx.r == null ? "void" : visit(ctx.r);
+        final String retType = ctx.r == null ? "void %s" : visit(ctx.r);
         final String tmp = textBuf.toString();
         textBuf.setLength(0);
         // Provide dummy scope
@@ -563,7 +598,7 @@ public class Translator extends GrammarBaseVisitor<String> {
             final String e = ctx.e.getText();
             body.append(e.substring(1, e.length() - 1));
         }
-        final String proto = retType + "\n" + name + " " + params;
+        final String proto = String.format(retType, name + " " + params);
         switch (procState) {
         case GEN_SYM:
             switch (visibility) {

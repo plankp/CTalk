@@ -64,8 +64,7 @@ ESCAPE
     ;
 
 L_INT
-    : '0'
-    | DIGIT_WOZ (DIGIT)*
+    : [+-]? ('0' | DIGIT_WOZ (DIGIT)*)
     ;
 
 L_DOUBLE
@@ -246,10 +245,20 @@ moduleBody
     | K_HIDDEN? b=topLevel  # hiddenEntity
     ;
 
+arrayBound
+    : L_INT     # intArrBound
+    | namespace # varArrBound
+    ;
+
+arrayBounds
+    : arrayBound
+    | arrayBound COMMA arrayBounds
+    ;
+
 lesserTypeId
     : (T_INT | T_CHAR | T_BOOL | T_DOUBLE) # primTypeId
     | n=namespace # nsTypeId
-    | LSQUARE t=typeId RSQUARE # ptrTypeId
+    | LSQUARE c=arrayBounds? t=typeId RSQUARE # ptrTypeId
     ;
 
 typeId
@@ -262,7 +271,8 @@ defFunction
     ;
 
 retType
-    : COLON (typeId | T_VOID)
+    : COLON T_VOID # voidRetType
+    | COLON typeId # valueRetType
     ;
 
 defParams
