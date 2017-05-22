@@ -64,7 +64,8 @@ ESCAPE
     ;
 
 L_INT
-    : [+-]? ('0' | DIGIT_WOZ (DIGIT)*)
+    : '0'
+    | DIGIT_WOZ (DIGIT)*
     ;
 
 L_DOUBLE
@@ -131,8 +132,20 @@ ELLIPSIS
     : '...'
     ;
 
+ADDRESS_OF
+    : '@'
+    ;
+
 ASSIGN
     : '='
+    ;
+
+ADD
+    : '+'
+    ;
+
+SUB
+    : '-'
     ;
 
 T_VOID
@@ -219,6 +232,10 @@ K_RETURN
     : 'return'
     ;
 
+K_SIZEOF
+    : 'sizeof'
+    ;
+
 IDENT
     : [a-zA-Z][a-zA-Z0-9_]*
     ;
@@ -255,14 +272,9 @@ moduleBody
     | K_HIDDEN? b=topLevel  # hiddenEntity
     ;
 
-arrayBound
-    : L_INT     # intArrBound
-    | namespace # varArrBound
-    ;
-
 arrayBounds
-    : arrayBound
-    | arrayBound COMMA arrayBounds
+    : expression
+    | expression COMMA arrayBounds
     ;
 
 lesserTypeId
@@ -307,6 +319,7 @@ statement // follow the $RULE SEMI format
 
 lvalExpression
     : funcRef
+    | dereference
     ;
 
 assignVar
@@ -333,12 +346,20 @@ variadicParam
 expression
     : lesserExpr # basicExpr
     | e=expression K_AS t=typeId # castExpr
+    | (ADDRESS_OF | ADD | SUB | K_SIZEOF) e=expression # unaryPrefixExpr
+    | assignVar # assignVarExpr
     ;
 
 lesserExpr
     : (L_INT | L_DOUBLE | L_CHAR | L_STRING) # primExpr
     | (funcRef | funcCall) # refExpr
+    | K_SIZEOF t=typeId # typeSizeExpr
     | LPAREN e=expression RPAREN # braceExpr
+    | dereference # derefExpr
+    ;
+
+dereference
+    : LSQUARE off=expression? e=expression RSQUARE
     ;
 
 funcRef

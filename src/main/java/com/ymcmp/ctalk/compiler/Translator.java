@@ -307,21 +307,6 @@ public class Translator extends GrammarBaseVisitor<String> {
     }
 
     @Override
-    public String visitIntArrBound(GrammarParser.IntArrBoundContext ctx) {
-        final String size = ctx.getText();
-        if (size.charAt(0) == '-') {
-            throw new RuntimeException("Arrays cannot have negative size: " + ctx.getText());
-        }
-        return size;
-    }
-
-    @Override
-    public String visitVarArrBound(GrammarParser.VarArrBoundContext ctx) {
-        mangleScheme = MangleScheme.INTERNAL;
-        return visit(ctx.getChild(0));
-    }
-
-    @Override
     public String visitBasicTypeId(GrammarParser.BasicTypeIdContext ctx) {
         final StringBuilder mod = new StringBuilder();
         if (ctx.c != null) {
@@ -446,6 +431,12 @@ public class Translator extends GrammarBaseVisitor<String> {
     }
 
     @Override
+    public String visitUnaryPrefixExpr(GrammarParser.UnaryPrefixExprContext ctx) {
+        final String op = ctx.getChild(0).getText();
+        return "(" + (op.equals("@") ? "&" : op) + "(" + visit(ctx.e) + "))";
+    }
+
+    @Override
     public String visitCastExpr(GrammarParser.CastExprContext ctx) {
         return "((" + String.format(visit(ctx.t), "") + ")" + visit(ctx.e) + ")";
     }
@@ -461,6 +452,11 @@ public class Translator extends GrammarBaseVisitor<String> {
     }
 
     @Override
+    public String visitTypeSizeExpr(GrammarParser.TypeSizeExprContext ctx) {
+        return "(sizeof(" + String.format(visit(ctx.t), "") + "))";
+    }
+
+    @Override
     public String visitRefExpr(GrammarParser.RefExprContext ctx) {
         return visit(ctx.getChild(0));
     }
@@ -468,6 +464,12 @@ public class Translator extends GrammarBaseVisitor<String> {
     @Override
     public String visitBraceExpr(GrammarParser.BraceExprContext ctx) {
         return visit(ctx.e);
+    }
+
+    @Override
+    public String visitDereference(GrammarParser.DereferenceContext ctx) {
+        final String offset = ctx.off == null ? "0" : visit(ctx.off);
+        return "(" + visit(ctx.e) + "[" + offset + "])";
     }
 
     @Override
