@@ -148,6 +148,18 @@ SUB
     : '-'
     ;
 
+MUL
+    : '*'
+    ;
+
+DIV
+    : '/'
+    ;
+
+MOD
+    : '%'
+    ;
+
 T_VOID
     : 'void'
     ;
@@ -347,6 +359,8 @@ expression
     : lesserExpr # basicExpr
     | e=expression K_AS t=typeId # castExpr
     | (ADDRESS_OF | ADD | SUB | K_SIZEOF) e=expression # unaryPrefixExpr
+    | e1=expression (MUL | DIV| MOD) e2=expression # mulLikeExpr
+    | e1=expression (ADD | SUB) e2=expression # addLikeExpr
     | assignVar # assignVarExpr
     ;
 

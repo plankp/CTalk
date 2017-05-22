@@ -431,6 +431,16 @@ public class Translator extends GrammarBaseVisitor<String> {
     }
 
     @Override
+    public String visitAddLikeExpr(GrammarParser.AddLikeExprContext ctx) {
+        return visit(ctx.e1) + ctx.getChild(1).getText() + visit(ctx.e2);
+    }
+
+    @Override
+    public String visitMulLikeExpr(GrammarParser.MulLikeExprContext ctx) {
+        return visit(ctx.e1) + ctx.getChild(1).getText() + visit(ctx.e2);
+    }
+
+    @Override
     public String visitUnaryPrefixExpr(GrammarParser.UnaryPrefixExprContext ctx) {
         final String op = ctx.getChild(0).getText();
         return "(" + (op.equals("@") ? "&" : op) + "(" + visit(ctx.e) + "))";
