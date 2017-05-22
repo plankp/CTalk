@@ -1,20 +1,21 @@
-import org.gradle.api.artifacts.*
+apply plugin: 'java'
+apply plugin: 'antlr'
+apply plugin: 'application'
 
-apply plugin: 'base' // To add "clean" task to the root project.
+mainClassName = 'com.ymcmp.ctalk.compiler.App'
 
-subprojects {
-    apply from: rootProject.file('common.gradle')
+sourceCompatibility = '1.8'
+[compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
+
+repositories {
+    mavenCentral()
 }
 
-task mergedJavadoc(type: Javadoc, description: 'Creates Javadoc from all the projects.') {
-    title = 'All modules'
-    destinationDir = new File(project.buildDir, 'merged-javadoc')
+dependencies {
+    testCompile group: 'junit', name: 'junit', version: '4.10'
+    antlr 'org.antlr:antlr4:4.7'
+}
 
-    // Note: The closures below are executed lazily.
-    source {
-       subprojects*.sourceSets*.main*.allSource
-    }
-    classpath.from {
-        subprojects*.configurations*.compile*.copyRecursive({ !(it instanceof ProjectDependency); })*.resolve()
-    }
+generateGrammarSource {
+    arguments += ["-visitor", "-no-listener", "-package", "com.ymcmp.ctalk.compiler"]
 }

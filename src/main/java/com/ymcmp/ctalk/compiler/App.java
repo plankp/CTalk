@@ -27,6 +27,7 @@ package com.ymcmp.ctalk.compiler;
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.Paths;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
@@ -40,11 +41,21 @@ public class App {
      * @throws java.net.URISyntaxException
      */
     public static void main(String[] args) throws IOException, URISyntaxException {
-        final URL res = App.class.getResource("hello.ct");
+        final String entryPoint;
+        final URL res;
+        switch (args.length) {
+        case 2:
+            res = Paths.get(args[0]).toUri().toURL();
+            entryPoint = args[1];
+            break;
+        default:
+            System.err.println("Supply two parameters in the following order:\n- file name of the main function\n- name of the main function\n\nFor example: hello.ct main:argc:argv");
+            return;
+        }
         final CharStream inp = CharStreams.fromStream(res.openStream());
         final GrammarLexer lex = new GrammarLexer(inp);
         final TokenStream toks = new CommonTokenStream(lex);
         final GrammarParser parser = new GrammarParser(toks);
-        System.out.println(new Translator(res.toURI()).generate(parser.program()));
+        System.out.println(new Translator(res.toURI()).generate(parser.program(), entryPoint));
     }
 }

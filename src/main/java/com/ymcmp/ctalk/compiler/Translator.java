@@ -97,7 +97,7 @@ public class Translator extends GrammarBaseVisitor<String> {
         currentFile.add(uri);
     }
 
-    public String generate(GrammarParser.ProgramContext ctx) {
+    public String generate(GrammarParser.ProgramContext ctx, final String entryFuncId) {
         // This has to be processed before head and tail
         procState = ProcState.GEN_SYM;
         visitProgram(ctx); // ignore output
@@ -105,7 +105,25 @@ public class Translator extends GrammarBaseVisitor<String> {
 
         procState = ProcState.GEN_CODE;
         final String body = visitProgram(ctx);
-        return Arrays.stream(("#include <stdbool.h>\n" + pasteInclude.toString() + "/* END OF INCLUDES */\n" + pasteTypedef.toString() + "/* END OF TYPEDEFS */\n" + pasteMacro.toString() + "/* END OF MACROS */\n" + head.toString() + "/* END OF PROTOTYPES */\n" + body + "\n" + tail.toString()).split("\n")).filter(e -> !e.trim().isEmpty()).collect(Collectors.joining("\n"));
+
+        // demo::main:argc:argv => demo main:argc:argv
+        final String[] nsPart = entryFuncId.split("::");
+        final StringBuilder ent = new StringBuilder();
+        ent.append("_C").append(nsPart.length - 1);
+        for (int i = 0; i < nsPart.length - 1; ++i) {
+            ent.append(nsPart[i]).append(nsPart[i].length());
+        }
+        ent.append(nsPart[nsPart.length - 1].replaceAll(":", "_"));
+
+        final String entry = "int main (int argc, char **argv) { return " + ent.toString() + "(argc, argv); }";
+        return Arrays.stream(("#include <stdbool.h>\n"
+                + pasteInclude.toString() + "/* END OF INCLUDES */\n"
+                + pasteTypedef.toString() + "/* END OF TYPEDEFS */\n"
+                + pasteMacro.toString() + "/* END OF MACROS */\n"
+                + head.toString() + "/* END OF PROTOTYPES */\n"
+                + body + "\n" + tail.toString() + "\n" + entry).split("\n"))
+                .filter(e -> !e.trim().isEmpty())
+                .collect(Collectors.joining("\n"));
     }
 
     @Override

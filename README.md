@@ -6,5 +6,18 @@ A pun on Smalltalk and C
 When you build this project, you are building a trans-compiler from CTalk to C.
 You can use stuff from C in CTalk, not the other way around though (as of now).
 
-To build, simply run `gradlew run` and the trans-compiler will translate the demo
-source file.
+To build, run `gradlew build` and the trans-compiler will be created under
+`build/distributions`. Extract the one of them and done!
+
+## Show me code
+
+```
+#{ Just your average day "Hello, world!" program }
+
+import std::io;
+
+function main:int argc: int, argv:[[char]]
+    std::io::println str:"Hello, world!";
+    return 0;
+end;
+```
