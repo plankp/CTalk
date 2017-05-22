@@ -1,0 +1,12 @@
+import foo;
+
+function a()
+
+    #{ This function can only see foo::f().
+       Internal means that only the module
+       itself and its child modules can see
+       it. #}
+    foo::f(); # Exported access: Valid
+    # foo::g(); # Internal access: Not valid
+    # foo::h(); # Hidden access: Not valid
+end;

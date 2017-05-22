@@ -1,0 +1,14 @@
+extern <stdarg.h>;
+
+module std::arg
+
+    export extern typename list "va_list";
+
+    export extern macro start list, from "va_start";
+
+    export extern macro get list, type "va_arg";
+
+    export extern macro copy dest, src "va_copy";
+
+    export extern macro free list "va_end";
+end;

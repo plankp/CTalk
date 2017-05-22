@@ -1,0 +1,51 @@
+extern <stdio.h>;
+
+import std::arg;
+
+module std::io
+
+    export extern typename file "FILE *";
+
+    export extern macro stdin "stdin";
+    export extern macro stdout "stdout";
+    export extern macro stderr "stderr";
+
+    export extern function print str:[const char] "printf";
+
+    export function println str:[const char]
+        _::printf fmt:"%s\n", str;
+    end;
+
+    export function printf:int fmt:[const char], ...
+        args : std::arg::list;
+        ret : int;
+
+        std::arg::start list:args from:fmt;
+        ret = _::printf fmt:fmt list:args;
+        std::arg::free list:args;
+        return ret;
+    end;
+
+    export function printf:int
+            file:_::file,
+            fmt:[const char],
+            ...
+        args : std::arg::list;
+        ret : int;
+
+        std::arg::start list:args from:fmt;
+        ret = _::printf file:file fmt:fmt list:args;
+        std::arg::free list:args;
+        return ret;
+    end;
+
+    export function printf:int
+            fmt:[const char],
+            list:std::arg::list
+        return _::printf file:_::stdout
+                         fmt:fmt
+                         list:list;
+    end;
+
+    export extern function printf:int file:_::file, fmt:[const char], list:std::arg::list "vfprintf";
+end;

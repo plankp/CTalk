@@ -1,0 +1,8 @@
+#{ Just your average day "Hello, world!" program }
+
+import std::io;
+
+function main:int argc: int, argv:[[char]]
+    std::io::println str:"Hello, world!";
+    return 0;
+end;

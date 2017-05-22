@@ -1,0 +1,33 @@
+#{ Demonstrating the power of modules! }
+
+import std::io;
+
+module foo
+
+    export function f()
+        std::io::println str:"foo::f()";
+    end;
+
+    internal function g()
+        std::io::println str:"foo::g()";
+    end;
+
+    hidden function h()
+        std::io::println str:"foo::h()";
+    end;
+end;
+
+#{ To access this module, import foo instead
+   of foo::Bar. #}
+module foo::Bar
+
+    #{ This module can see foo::f() and foo::g().
+       foo::h() is not visible because it has a
+       visibility of hidden (omit implies
+       hidden). #}
+    export function a()
+        foo::f(); # Exported access: Valid
+        foo::g(); # Internal access: Valid
+        # foo::h(); # Hidden access: Not valid
+    end;
+end;
