@@ -40,6 +40,7 @@ import org.antlr.v4.runtime.CharStreams;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.RecognitionException;
 import org.antlr.v4.runtime.TokenStream;
+import org.antlr.v4.runtime.tree.ParseTree;
 
 /**
  *
@@ -92,6 +93,7 @@ public class Translator extends GrammarBaseVisitor<String> {
     private Visibility visibility = Visibility.HIDDEN;
     private MangleScheme mangleScheme = MangleScheme.INTERNAL;
     private ProcState procState = ProcState.GEN_SYM;
+    private String paramSeparator = ",";
 
     public Translator(final URI uri) {
         currentFile.add(uri);
@@ -194,6 +196,7 @@ public class Translator extends GrammarBaseVisitor<String> {
         final String tmp = textBuf.toString();
         textBuf.setLength(0);
         locals.add(new ArrayDeque<>());
+        paramSeparator = ",";
         final String params = visit(ctx.p);
         // Parameters *MUST* be processed before name
         mangleScheme = MangleScheme.INTERNAL;
@@ -240,7 +243,7 @@ public class Translator extends GrammarBaseVisitor<String> {
         }
         final StringBuilder sb = new StringBuilder("(");
         for (int i = 0; i < ctx.getChildCount(); i += 2) {
-            sb.append(visit(ctx.getChild(i))).append(',');
+            sb.append(visit(ctx.getChild(i))).append(paramSeparator);
         }
         if (ctx.v == null) {
             sb.deleteCharAt(sb.length() - 1);
@@ -259,7 +262,7 @@ public class Translator extends GrammarBaseVisitor<String> {
             final String iname = "_C0" + pname;
             locals.peek().add(iname);
             textBuf.append('_').append(pname);
-            sb.append(String.format(ts, iname)).append(',');
+            sb.append(String.format(ts, iname)).append(paramSeparator);
         }
         return sb.deleteCharAt(sb.length() - 1).toString();
     }
@@ -340,7 +343,11 @@ public class Translator extends GrammarBaseVisitor<String> {
 
     @Override
     public String visitStatement(GrammarParser.StatementContext ctx) {
-        return visit(ctx.getChild(0)) + ";";
+        final ParseTree child = ctx.getChild(0);
+        if (child instanceof GrammarParser.DefParamContext) {
+            paramSeparator = ";";
+        }
+        return visit(child) + ";";
     }
 
     @Override
@@ -465,13 +472,20 @@ public class Translator extends GrammarBaseVisitor<String> {
 
     @Override
     public String visitFuncRef(GrammarParser.FuncRefContext ctx) {
+        mangleScheme = MangleScheme.MINUS_1;
         final StringBuilder sb = new StringBuilder(visit(ctx.getChild(0)));
-        for (int i = 2; i < ctx.getChildCount(); i += 2) {
-            sb.append('_').append(ctx.getChild(i).getText());
+        if (ctx.t == null) {
+            for (int i = 2; i < ctx.getChildCount(); i += 2) {
+                sb.append('_').append(ctx.getChild(i).getText());
+            }
+            final String qualId = sb.toString();
+            checkCallVisiblity(qualId);
+            return qualId;
         }
-        final String qualId = sb.toString();
-        checkCallVisiblity(qualId);
-        return qualId;
+        checkCallVisiblity(sb.toString());
+        return sb.append(ctx.t.stream()
+                .map(e -> e.getChild(0).getText() + "_C0" + e.n.getText())
+                .collect(Collectors.joining())).toString();
     }
 
     @Override
@@ -578,6 +592,7 @@ public class Translator extends GrammarBaseVisitor<String> {
         textBuf.setLength(0);
         // Provide dummy scope
         locals.add(new ArrayDeque<>());
+        paramSeparator = ",";
         final String params = visit(ctx.p);
         locals.pop();
         // Parameters *MUST* be processed before name
@@ -687,6 +702,62 @@ public class Translator extends GrammarBaseVisitor<String> {
                 nsInfo.put(name, new NsInfo(visibility, prior + ctx.n.getText(), visitNamespace(currentNs.peek())));
             }
             pasteTypedef.append("typedef ").append(externTypeName).append(' ').append(name).append(";\n");
+        }
+        return "";
+    }
+
+    @Override
+    public String visitDefStruct(GrammarParser.DefStructContext ctx) {
+        if (procState == ProcState.GEN_SYM) {
+            mangleScheme = MangleScheme.PLUS_1;
+            final String tname = ctx.n.getText();
+            final String name = visitNamespace(currentNs.peek()) + tname + tname.length();
+            mangleScheme = MangleScheme.HIERACHY;
+            {
+                final String prior = currentNs.peek() == null ? "" : (currentNs.peek().getText() + "::");
+                nsInfo.put(name, new NsInfo(visibility, prior + ctx.n.getText(), visitNamespace(currentNs.peek())));
+            }
+            // Provide dummy scope
+            locals.add(new ArrayDeque<>());
+            paramSeparator = ";";
+            final String typedefLine = new StringBuilder()
+                    .append("typedef struct ").append(name)
+                    .append(' ').append(name).append(";\n").toString();
+            pasteTypedef.insert(0, typedefLine)
+                    .append("struct ").append(name).append("\n{\n");
+            for (int i = 2; i < ctx.getChildCount() - 1; i += 2) {
+                pasteTypedef.append(visit(ctx.getChild(i))).append(";\n");
+            }
+            locals.pop();
+            pasteTypedef.append("};\n");
+        }
+        return "";
+    }
+
+    @Override
+    public String visitDefUnion(GrammarParser.DefUnionContext ctx) {
+        if (procState == ProcState.GEN_SYM) {
+            mangleScheme = MangleScheme.PLUS_1;
+            final String tname = ctx.n.getText();
+            final String name = visitNamespace(currentNs.peek()) + tname + tname.length();
+            mangleScheme = MangleScheme.HIERACHY;
+            {
+                final String prior = currentNs.peek() == null ? "" : (currentNs.peek().getText() + "::");
+                nsInfo.put(name, new NsInfo(visibility, prior + ctx.n.getText(), visitNamespace(currentNs.peek())));
+            }
+            // Provide dummy scope
+            locals.add(new ArrayDeque<>());
+            paramSeparator = ";";
+            final String typedefLine = new StringBuilder()
+                    .append("typedef union ").append(name)
+                    .append(' ').append(name).append(";\n").toString();
+            pasteTypedef.insert(0, typedefLine)
+                    .append("union ").append(name).append("\n{\n");
+            for (int i = 2; i < ctx.getChildCount() - 1; i += 2) {
+                pasteTypedef.append(visit(ctx.getChild(i))).append(";\n");
+            }
+            locals.pop();
+            pasteTypedef.append("};\n");
         }
         return "";
     }

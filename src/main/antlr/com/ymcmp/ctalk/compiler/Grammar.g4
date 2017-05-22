@@ -119,6 +119,14 @@ COMMA
     : ','
     ;
 
+MEM_VAL
+    : '.'
+    ;
+
+MEM_PTR
+    : '->'
+    ;
+
 ELLIPSIS
     : '...'
     ;
@@ -233,6 +241,8 @@ namespace
 topLevel
     : defFunction SEMI
     | defExternal SEMI
+    | defStruct SEMI
+    | defUnion SEMI
     ;
 
 defModule
@@ -296,7 +306,7 @@ statement // follow the $RULE SEMI format
     ;
 
 lvalExpression
-    : namespace
+    : funcRef
     ;
 
 assignVar
@@ -333,6 +343,12 @@ lesserExpr
 
 funcRef
     : namespace (COLON IDENT)*
+    | namespace t+=memberAccess+
+    ;
+
+memberAccess
+    : MEM_VAL n=IDENT
+    | MEM_PTR n=IDENT
     ;
 
 defDependency
@@ -350,4 +366,12 @@ defExternal
     : K_EXTERN K_FUNCTION n=IDENT r=retType? p=defParams e=L_STRING # defExternFunction
     | K_EXTERN K_MACRO n=IDENT p=defMParams? e=L_STRING # defExternMacro
     | K_EXTERN K_TYPE n=IDENT e=L_STRING # defExternType
+    ;
+
+defStruct
+    : K_STRUCT n=IDENT (defParam SEMI)* K_END
+    ;
+
+defUnion
+    : K_UNION n=IDENT (defParam SEMI)* K_END
     ;
