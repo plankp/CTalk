@@ -232,7 +232,7 @@ public class Translator extends GrammarBaseVisitor<String> {
         default:
             throw new RuntimeException("Unhandled process state of " + procState);
         }
-        locals.pop();
+        locals.removeLast();
         return ret;
     }
 
@@ -606,7 +606,7 @@ public class Translator extends GrammarBaseVisitor<String> {
         locals.add(new ArrayDeque<>());
         paramSeparator = ",";
         final String params = visit(ctx.p);
-        locals.pop();
+        locals.removeLast();
         // Parameters *MUST* be processed before name
         mangleScheme = MangleScheme.INTERNAL;
         final String name = visitNamespace(currentNs.peek()) + ctx.n.getText() + textBuf.toString();
@@ -740,7 +740,7 @@ public class Translator extends GrammarBaseVisitor<String> {
             for (int i = 2; i < ctx.getChildCount() - 1; i += 2) {
                 pasteTypedef.append(visit(ctx.getChild(i))).append(";\n");
             }
-            locals.pop();
+            locals.removeLast();
             pasteTypedef.append("};\n");
         }
         return "";
@@ -768,9 +768,144 @@ public class Translator extends GrammarBaseVisitor<String> {
             for (int i = 2; i < ctx.getChildCount() - 1; i += 2) {
                 pasteTypedef.append(visit(ctx.getChild(i))).append(";\n");
             }
-            locals.pop();
+            locals.removeLast();
             pasteTypedef.append("};\n");
         }
         return "";
+    }
+
+    @Override
+    public String visitBlockScope(GrammarParser.BlockScopeContext ctx) {
+        if (ctx.s.isEmpty()) {
+            return "";
+        }
+        locals.add(new ArrayDeque<>());
+        final String body = ctx.s.stream()
+                .map(this::visit)
+                .collect(Collectors.joining("\n", "{\n", "\n}//"));
+        locals.removeLast();
+        return body;
+    }
+
+    @Override
+    public String visitAlterFlow(GrammarParser.AlterFlowContext ctx) {
+        return ctx.getText();
+    }
+
+    @Override
+    public String visitSwitchFlow(GrammarParser.SwitchFlowContext ctx) {
+        final String expr = visit(ctx.e);
+        final String casePart1 = ctx.c1.stream()
+                .map(this::visit)
+                .collect(Collectors.joining("\n"));
+        final String defaultCase = ctx.d == null ? "" : visit(ctx.d);
+        final String casePart2 = ctx.c2.stream()
+                .map(this::visit)
+                .collect(Collectors.joining("\n"));
+        return "switch (" + expr + ")\n{\n"
+                + casePart1 + "\n"
+                + defaultCase + "\n"
+                + casePart2
+                + "\n}//";
+    }
+
+    @Override
+    public String visitCaseFlow(GrammarParser.CaseFlowContext ctx) {
+        locals.add(new ArrayDeque<>());
+        final String ret = ctx.s.stream()
+                .map(this::visit)
+                .collect(Collectors.joining("\n",
+                                            "case " + visit(ctx.e) + ":\n{\n",
+                                            "\n}"));
+        locals.removeLast();
+        return ret;
+    }
+
+    @Override
+    public String visitDefaultFlow(GrammarParser.DefaultFlowContext ctx) {
+        locals.add(new ArrayDeque<>());
+        final String ret = ctx.s.stream()
+                .map(this::visit)
+                .collect(Collectors.joining("\n", "default:\n{\n", "\n}"));
+        locals.removeLast();
+        return ret;
+    }
+
+    @Override
+    public String visitForFlow(GrammarParser.ForFlowContext ctx) {
+        locals.add(new ArrayDeque<>());
+        final String stmts = ctx.s.isEmpty() ? "{\n}//" : ctx.s.stream()
+                .map(this::visit)
+                .collect(Collectors.joining("\n", "{\n", "\n}//"));
+        locals.removeLast();
+        return "for (" + visit(ctx.c) + ")\n" + stmts;
+    }
+
+    @Override
+    public String visitForCondition(GrammarParser.ForConditionContext ctx) {
+        final StringBuilder sb = new StringBuilder();
+        if (ctx.i != null) {
+            sb.append(visit(ctx.i));
+        }
+        sb.append(';');
+        if (ctx.c != null) {
+            sb.append(visit(ctx.c));
+        }
+        sb.append(';');
+        if (ctx.f != null) {
+            sb.append(visit(ctx.f));
+        }
+        return sb.toString();
+    }
+
+    @Override
+    public String visitIfFlow(GrammarParser.IfFlowContext ctx) {
+        locals.add(new ArrayDeque<>());
+        final StringBuilder tmp = new StringBuilder()
+                .append(ctx.s.stream()
+                        .map(this::visit)
+                        .collect(Collectors.joining("\n",
+                                                    "if (" + visit(ctx.c) + ")\n{\n",
+                                                    "\n}//")));
+        locals.removeLast();
+        tmp.append(ctx.a.stream()
+                .map(this::visit)
+                .collect(Collectors.joining("\n", "\n", "")));
+        if (ctx.e != null) {
+            tmp.append('\n').append(visit(ctx.e));
+        }
+        return tmp.toString();
+    }
+
+    @Override
+    public String visitElseIfFlow(GrammarParser.ElseIfFlowContext ctx) {
+        locals.add(new ArrayDeque<>());
+        final String ret = ctx.s.stream()
+                .map(this::visit)
+                .collect(Collectors.joining("\n",
+                                            "else if (" + visit(ctx.c) + ")\n{\n",
+                                            "\n}//"));
+        locals.removeLast();
+        return ret;
+    }
+
+    @Override
+    public String visitElseFlow(GrammarParser.ElseFlowContext ctx) {
+        locals.add(new ArrayDeque<>());
+        final String ret = ctx.s.stream()
+                .map(this::visit)
+                .collect(Collectors.joining("\n", "else\n{\n", "\n}//"));
+        locals.removeLast();
+        return ret;
+    }
+
+    @Override
+    public String visitLabelFlow(GrammarParser.LabelFlowContext ctx) {
+        return "_T" + ctx.n.getText() + ":\n" + visit(ctx.s) + "//";
+    }
+
+    @Override
+    public String visitGotoFlow(GrammarParser.GotoFlowContext ctx) {
+        return "goto _T" + ctx.n.getText();
     }
 }

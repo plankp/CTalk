@@ -63,6 +63,14 @@ ESCAPE
     : '\\' ([abfnrtv"'\\] | UNICODE_ESC)
     ;
 
+L_TRUE
+    : 'true'
+    ;
+
+L_FALSE
+    : 'false'
+    ;
+
 L_INT
     : '0'
     | DIGIT_WOZ (DIGIT)*
@@ -160,6 +168,10 @@ MOD
     : '%'
     ;
 
+LABEL
+    : '$'
+    ;
+
 T_VOID
     : 'void'
     ;
@@ -248,6 +260,50 @@ K_SIZEOF
     : 'sizeof'
     ;
 
+K_SWITCH
+    : 'switch'
+    ;
+
+K_CASE
+    : 'case'
+    ;
+
+K_DEFAULT
+    : 'default'
+    ;
+
+K_FOR
+    : 'for'
+    ;
+
+K_IF
+    : 'if'
+    ;
+
+K_ELSEIF
+    : 'elseif'
+    ;
+
+K_ELSE
+    : 'else'
+    ;
+
+K_BREAK
+    : 'break'
+    ;
+
+K_CONTINUE
+    : 'continue'
+    ;
+
+K_DO
+    : 'do'
+    ;
+
+K_GOTO
+    : 'goto'
+    ;
+
 IDENT
     : [a-zA-Z][a-zA-Z0-9_]*
     ;
@@ -322,11 +378,68 @@ defParam
     : IDENT (COMMA IDENT)* COLON typeId
     ;
 
-statement // follow the $RULE SEMI format
+statement
     : funcCall SEMI
     | retVal SEMI
     | defParam SEMI
     | assignVar SEMI
+    | ifFlow SEMI
+    | forFlow SEMI
+    | switchFlow SEMI
+    | alterFlow SEMI
+    | blockScope SEMI
+    | labelFlow       // No SEMI here! (rule itself already ends with SEMI)
+    | gotoFlow SEMI
+    ;
+
+gotoFlow
+    : K_GOTO LABEL n=IDENT
+    ;
+
+labelFlow
+    : LABEL n=IDENT COLON s=statement
+    ;
+
+blockScope
+    : K_DO s+=statement* K_END
+    ;
+
+alterFlow
+    : K_BREAK
+    | K_CONTINUE
+    ;
+
+switchFlow
+    : K_SWITCH e=expression c1+=caseFlow* d=defaultFlow? c2+=caseFlow* K_END
+    ;
+
+defaultFlow
+    : K_DEFAULT COLON s+=statement*
+    ;
+
+caseFlow
+    : K_CASE e=expression COLON s+=statement*
+    ;
+
+forFlow
+    : K_FOR c=forCondition s+=statement* K_END
+    ;
+
+forCondition
+    : c=expression
+    | i=expression? COMMA c=expression? COMMA f=expression?
+    ;
+
+ifFlow
+    : K_IF c=expression s+=statement* a+=elseIfFlow* e=elseFlow? K_END
+    ;
+
+elseIfFlow
+    : K_ELSEIF c=expression s+=statement*
+    ;
+
+elseFlow
+    : K_ELSE s+=statement*
     ;
 
 lvalExpression
@@ -365,7 +478,7 @@ expression
     ;
 
 lesserExpr
-    : (L_INT | L_DOUBLE | L_CHAR | L_STRING) # primExpr
+    : (L_INT | L_DOUBLE | L_CHAR | L_STRING | L_TRUE | L_FALSE) # primExpr
     | (funcRef | funcCall) # refExpr
     | K_SIZEOF t=typeId # typeSizeExpr
     | LPAREN e=expression RPAREN # braceExpr
