@@ -23,4 +23,6 @@ function main:int argc: int, argv:[[char]]
 end;
 ```
 
+Syntax highlighting for vim is supported: `ctalk.vim`.
+
 For more info, see the [wiki](https://github.com/plankp/CTalk/wiki).
