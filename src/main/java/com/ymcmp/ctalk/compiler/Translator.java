@@ -268,6 +268,28 @@ public class Translator extends GrammarBaseVisitor<String> {
     }
 
     @Override
+    public String visitDefLocal(GrammarParser.DefLocalContext ctx) {
+        final String ts = visit(ctx.getChild(ctx.getChildCount() - 1));
+        final StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < ctx.getChildCount() - 2; i += 2) {
+            textBuf.setLength(0);
+            final String pname = visit(ctx.getChild(i));
+            final String iname = "_C0" + pname;
+            locals.peek().add(iname);
+            sb.append(String.format(ts, iname)).append(textBuf).append(';');
+        }
+        return sb.deleteCharAt(sb.length() - 1).toString();
+    }
+
+    @Override
+    public String visitLocalInit(GrammarParser.LocalInitContext ctx) {
+        if (ctx.v != null) {
+            textBuf.append('=').append(visit(ctx.v));
+        }
+        return ctx.n.getText();
+    }
+
+    @Override
     public String visitValueRetType(GrammarParser.ValueRetTypeContext ctx) {
         return visit(ctx.getChild(1));
     }
@@ -328,11 +350,7 @@ public class Translator extends GrammarBaseVisitor<String> {
 
     @Override
     public String visitStatement(GrammarParser.StatementContext ctx) {
-        final ParseTree child = ctx.getChild(0);
-        if (child instanceof GrammarParser.DefParamContext) {
-            paramSeparator = ";";
-        }
-        return visit(child) + ";";
+        return visit(ctx.getChild(0)) + ";";
     }
 
     @Override

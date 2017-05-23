@@ -451,10 +451,19 @@ defParam
     : IDENT (COMMA IDENT)* COLON typeId
     ;
 
+defLocal
+    : localInit (COMMA localInit)* COLON typeId
+    ;
+
+localInit
+    : n=IDENT ASSIGN v=expression
+    | n=IDENT
+    ;
+
 statement
     : funcCall SEMI
     | retVal SEMI
-    | defParam SEMI
+    | defLocal SEMI
     | assignVar SEMI
     | ifFlow SEMI
     | forFlow SEMI
