@@ -118,7 +118,7 @@ public class Translator extends GrammarBaseVisitor<String> {
         ent.append(nsPart[nsPart.length - 1].replaceAll(":", "_"));
 
         final String entry = "int main (int argc, char **argv) { return " + ent.toString() + "(argc, argv); }";
-        return Arrays.stream(("#include <stdbool.h>\n"
+        return Arrays.stream(("#include <stdbool.h>\n#include <stddef.h>\n"
                 + pasteInclude.toString() + "/* END OF INCLUDES */\n"
                 + pasteTypedef.toString() + "/* END OF TYPEDEFS */\n"
                 + pasteMacro.toString() + "/* END OF MACROS */\n"
@@ -297,6 +297,45 @@ public class Translator extends GrammarBaseVisitor<String> {
     @Override
     public String visitVoidRetType(GrammarParser.VoidRetTypeContext ctx) {
         return "void %s";
+    }
+
+    @Override
+    public String visitLesserFloatPoint(GrammarParser.LesserFloatPointContext ctx) {
+        return ctx.children.stream().map(ParseTree::getText).collect(Collectors.joining(" "));
+    }
+
+    @Override
+    public String visitFloatPoint(GrammarParser.FloatPointContext ctx) {
+        final String base = visit(ctx.f);
+        if (ctx.getChildCount() > 1) {
+            final String mod;
+            switch (ctx.getChild(0).getText()) {
+            case "complex":
+                mod = "_Complex";
+                break;
+            case "imaginary":
+                mod = "_Imaginary";
+                break;
+            default:
+                throw new RuntimeException("Unhandled float point modifier of " + ctx.getChild(0).getText());
+            }
+            return base + " " + mod + " %s";
+        }
+        return base + " %s";
+    }
+
+    @Override
+    public String visitLesserIntegral(GrammarParser.LesserIntegralContext ctx) {
+        return ctx.children.stream().map(ParseTree::getText).collect(Collectors.joining(" "));
+    }
+
+    @Override
+    public String visitIntegral(GrammarParser.IntegralContext ctx) {
+        final String base = visit(ctx.i);
+        if (ctx.getChildCount() > 1) {
+            return ctx.getChild(0).getText() + " " + base + " %s";
+        }
+        return base + " %s";
     }
 
     @Override
@@ -529,7 +568,11 @@ public class Translator extends GrammarBaseVisitor<String> {
 
     @Override
     public String visitPrimExpr(GrammarParser.PrimExprContext ctx) {
-        return ctx.getText().replace("?", "\\?");
+        final String txt = ctx.getText();
+        if (txt.equals("null")) {
+            return "NULL";
+        }
+        return txt.replace("?", "\\?");
     }
 
     @Override
@@ -544,7 +587,7 @@ public class Translator extends GrammarBaseVisitor<String> {
 
     @Override
     public String visitBraceExpr(GrammarParser.BraceExprContext ctx) {
-        return visit(ctx.e);
+        return "(" + visit(ctx.e) + ")";
     }
 
     @Override

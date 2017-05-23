@@ -71,6 +71,10 @@ L_FALSE
     : 'false'
     ;
 
+L_NULL
+    : 'null'
+    ;
+
 L_INT
     : '0'
     | DIGIT_WOZ (DIGIT)*
@@ -249,8 +253,16 @@ T_VOID
     : 'void'
     ;
 
+T_LONG
+    : 'long'
+    ;
+
 T_INT
     : 'int'
+    ;
+
+T_SHORT
+    : 'short'
     ;
 
 T_CHAR
@@ -263,6 +275,30 @@ T_BOOL
 
 T_DOUBLE
     : 'double'
+    ;
+
+T_FLOAT
+    : 'float'
+    ;
+
+T_SIZE
+    : 'size_t'
+    ;
+
+T_SIGNED
+    : 'signed'
+    ;
+
+T_UNSIGNED
+    : 'unsigned'
+    ;
+
+T_COMPLEX
+    : 'complex'
+    ;
+
+T_IMAGINARY
+    : 'imaginary'
     ;
 
 K_AS
@@ -418,8 +454,31 @@ arrayBounds
     | expression COMMA arrayBounds
     ;
 
+integral
+    : (T_SIGNED | T_UNSIGNED)? i=lesserIntegral
+    ;
+
+lesserIntegral
+    : T_CHAR
+    | T_SHORT
+    | T_INT
+    | T_LONG T_INT?
+    | T_LONG T_LONG T_INT?
+    ;
+
+floatPoint
+    : (T_COMPLEX | T_IMAGINARY)? f=lesserFloatPoint
+    ;
+
+lesserFloatPoint
+    : T_FLOAT
+    | T_DOUBLE
+    | T_LONG T_DOUBLE
+    ;
+
 lesserTypeId
-    : (T_INT | T_CHAR | T_BOOL | T_DOUBLE) # primTypeId
+    : (T_BOOL | T_SIZE) # primTypeId
+    | (integral | floatPoint) # stdTypeId
     | n=namespace # nsTypeId
     | LSQUARE c=arrayBounds? t=typeId RSQUARE # ptrTypeId
     ;
@@ -568,7 +627,7 @@ expression
     ;
 
 lesserExpr
-    : (L_INT | L_DOUBLE | L_CHAR | L_STRING | L_TRUE | L_FALSE) # primExpr
+    : (L_INT | L_DOUBLE | L_CHAR | L_STRING | L_TRUE | L_FALSE | L_NULL) # primExpr
     | (funcRef | funcCall) # refExpr
     | K_SIZEOF t=typeId # typeSizeExpr
     | LPAREN e=expression RPAREN # braceExpr
