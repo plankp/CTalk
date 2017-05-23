@@ -301,6 +301,10 @@ T_IMAGINARY
     : 'imaginary'
     ;
 
+T_ANY
+    : 'any_t'
+    ;
+
 K_AS
     : 'as'
     ;
@@ -477,7 +481,7 @@ lesserFloatPoint
     ;
 
 lesserTypeId
-    : (T_BOOL | T_SIZE) # primTypeId
+    : (T_BOOL | T_SIZE | T_ANY) # primTypeId
     | (integral | floatPoint) # stdTypeId
     | n=namespace # nsTypeId
     | LSQUARE c=arrayBounds? t=typeId RSQUARE # ptrTypeId

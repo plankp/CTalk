@@ -340,7 +340,11 @@ public class Translator extends GrammarBaseVisitor<String> {
 
     @Override
     public String visitPrimTypeId(GrammarParser.PrimTypeIdContext ctx) {
-        return ctx.getText() + " %s";
+        String type = ctx.getText();
+        if (type.equals("any_t")) {
+            type = "void *";
+        }
+        return type + " %s";
     }
 
     @Override
