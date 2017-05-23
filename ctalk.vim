@@ -21,9 +21,9 @@ syn keyword ctalkOp sizeof and not or as
 syn keyword ctalkType bool any_t size_t char short int long float double unsigned signed imaginary complex void
 syn keyword ctalkStoClass const volatile
 
-syn match ctalkLabel "$\w\(\w\|\d\|_\)*"
+syn match ctalkLabel "$\w\+"
 
-syn match ctalkIdent "\w\(\w\|\d\|_\)*"
+syn match ctalkIdent "\w\+"
 
 syn match ctalkSpecial display contained "\\\(.\|$\)"
 syn match ctalkSpecial display contained "\\\(u\x\{4}\|U\x\{8}\)"
