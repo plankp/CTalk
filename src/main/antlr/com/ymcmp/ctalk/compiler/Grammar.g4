@@ -168,6 +168,79 @@ MOD
     : '%'
     ;
 
+EXCLAIM
+    : '!'
+    ;
+
+LESS_THAN
+    : '<'
+    ;
+
+GREATER_THAN
+    : '>'
+    ;
+
+LESS_EQUAL
+    : '<='
+    ;
+
+GREATER_EQUAL
+    : '>='
+    ;
+
+EQUAL
+    : '=='
+    ;
+
+NOT_EQUAL
+    : '!='
+    ;
+
+SHIFT_LEFT
+    : '<<'
+    ;
+
+SHIFT_RIGHT
+    : '>>'
+    ;
+
+BIT_AND
+    : '&'
+    ;
+
+BIT_XOR
+    : '^'
+    ;
+
+BIT_OR
+    : '|'
+    ;
+
+K_AND
+    : 'and'
+    ;
+
+K_OR
+    : 'or'
+    ;
+
+K_NOT
+    : 'not'
+    ;
+
+SPECIAL_ASSIGN
+    : '+='
+    | '-='
+    | '*='
+    | '/='
+    | '%='
+    | '<<='
+    | '>>='
+    | '&='
+    | '^='
+    | '|='
+    ;
+
 LABEL
     : '$'
     ;
@@ -448,7 +521,7 @@ lvalExpression
     ;
 
 assignVar
-    : d=lvalExpression ASSIGN s=expression
+    : d=lvalExpression (ASSIGN | SPECIAL_ASSIGN) s=expression
     ;
 
 retVal
@@ -471,9 +544,17 @@ variadicParam
 expression
     : lesserExpr # basicExpr
     | e=expression K_AS t=typeId # castExpr
-    | (ADDRESS_OF | ADD | SUB | K_SIZEOF) e=expression # unaryPrefixExpr
+    | (ADDRESS_OF | ADD | SUB | K_SIZEOF | EXCLAIM | K_NOT) e=expression # unaryPrefixExpr
     | e1=expression (MUL | DIV| MOD) e2=expression # mulLikeExpr
     | e1=expression (ADD | SUB) e2=expression # addLikeExpr
+    | e1=expression (SHIFT_LEFT | SHIFT_RIGHT) e2=expression # shiftLikeExpr
+    | e1=expression (LESS_THAN | GREATER_THAN | LESS_EQUAL | GREATER_EQUAL) e2=expression # relLikeExpr
+    | e1=expression (EQUAL | NOT_EQUAL) e2=expression # eqlLikeExpr
+    | e1=expression BIT_AND e2=expression # bitAndExpr
+    | e1=expression BIT_XOR e2=expression # bitXorExpr
+    | e1=expression BIT_OR e2=expression # bitOrExpr
+    | e1=expression K_AND e2=expression # logAndExpr
+    | e1=expression K_OR e2=expression # logOrExpr
     | assignVar # assignVarExpr
     ;
 

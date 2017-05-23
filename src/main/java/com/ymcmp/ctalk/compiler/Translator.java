@@ -342,7 +342,7 @@ public class Translator extends GrammarBaseVisitor<String> {
 
     @Override
     public String visitAssignVar(GrammarParser.AssignVarContext ctx) {
-        return visit(ctx.d) + " = " + visit(ctx.s);
+        return visit(ctx.d) + ctx.getChild(1).getText() + visit(ctx.s);
     }
 
     @Override
@@ -431,6 +431,46 @@ public class Translator extends GrammarBaseVisitor<String> {
     }
 
     @Override
+    public String visitLogOrExpr(GrammarParser.LogOrExprContext ctx) {
+        return visit(ctx.e1) + " || " + visit(ctx.e2);
+    }
+
+    @Override
+    public String visitLogAndExpr(GrammarParser.LogAndExprContext ctx) {
+        return visit(ctx.e1) + " && " + visit(ctx.e2);
+    }
+
+    @Override
+    public String visitBitOrExpr(GrammarParser.BitOrExprContext ctx) {
+        return visit(ctx.e1) + ctx.getChild(1).getText() + visit(ctx.e2);
+    }
+
+    @Override
+    public String visitBitXorExpr(GrammarParser.BitXorExprContext ctx) {
+        return visit(ctx.e1) + ctx.getChild(1).getText() + visit(ctx.e2);
+    }
+
+    @Override
+    public String visitBitAndExpr(GrammarParser.BitAndExprContext ctx) {
+        return visit(ctx.e1) + ctx.getChild(1).getText() + visit(ctx.e2);
+    }
+
+    @Override
+    public String visitEqlLikeExpr(GrammarParser.EqlLikeExprContext ctx) {
+        return visit(ctx.e1) + ctx.getChild(1).getText() + visit(ctx.e2);
+    }
+
+    @Override
+    public String visitRelLikeExpr(GrammarParser.RelLikeExprContext ctx) {
+        return visit(ctx.e1) + ctx.getChild(1).getText() + visit(ctx.e2);
+    }
+
+    @Override
+    public String visitShiftLikeExpr(GrammarParser.ShiftLikeExprContext ctx) {
+        return visit(ctx.e1) + ctx.getChild(1).getText() + visit(ctx.e2);
+    }
+
+    @Override
     public String visitAddLikeExpr(GrammarParser.AddLikeExprContext ctx) {
         return visit(ctx.e1) + ctx.getChild(1).getText() + visit(ctx.e2);
     }
@@ -442,8 +482,21 @@ public class Translator extends GrammarBaseVisitor<String> {
 
     @Override
     public String visitUnaryPrefixExpr(GrammarParser.UnaryPrefixExprContext ctx) {
-        final String op = ctx.getChild(0).getText();
-        return "(" + (op.equals("@") ? "&" : op) + "(" + visit(ctx.e) + "))";
+        String op = ctx.getChild(0).getText();
+        switch (op) {
+        case "@":
+            op = "&";
+            break;
+        case "!":
+            op = "~";
+            break;
+        case "not":
+            op = "!";
+            break;
+        default:
+            break;
+        }
+        return "(" + op + "(" + visit(ctx.e) + "))";
     }
 
     @Override
