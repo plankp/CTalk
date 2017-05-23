@@ -736,7 +736,7 @@ public class Translator extends GrammarBaseVisitor<String> {
         textBuf.setLength(0);
         textBuf.append(tmp);
         final StringBuilder body = new StringBuilder();
-        if (!retType.equals("void")) {
+        if (!retType.equals("void %s")) {
             body.append("return ");
         }
         {
