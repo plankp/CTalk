@@ -23,6 +23,14 @@
  */
 package com.ymcmp.ctalk.compiler;
 
+import com.ymcmp.ctalk.compiler.NsInfo.Visibility;
+
+import org.antlr.v4.runtime.CharStream;
+import org.antlr.v4.runtime.CharStreams;
+import org.antlr.v4.runtime.CommonTokenStream;
+import org.antlr.v4.runtime.RecognitionException;
+import org.antlr.v4.runtime.TokenStream;
+
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -32,14 +40,10 @@ import java.util.Arrays;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
-import org.antlr.v4.runtime.CharStream;
-import org.antlr.v4.runtime.CharStreams;
-import org.antlr.v4.runtime.CommonTokenStream;
-import org.antlr.v4.runtime.RecognitionException;
-import org.antlr.v4.runtime.TokenStream;
 import org.antlr.v4.runtime.tree.ParseTree;
 
 /**
@@ -47,10 +51,6 @@ import org.antlr.v4.runtime.tree.ParseTree;
  * @author YTENG
  */
 public class Translator extends GrammarBaseVisitor<String> {
-
-    private enum Visibility {
-        EXPORT, INTERNAL, HIDDEN
-    }
 
     private enum MangleScheme {
         INTERNAL, HIERACHY, MINUS_1, PLUS_1
@@ -60,29 +60,11 @@ public class Translator extends GrammarBaseVisitor<String> {
         GEN_SYM, GEN_CODE
     }
 
-    private static class NsInfo {
-
-        public final Visibility visibility;
-        public final String name;
-        public final String hierachy;
-
-        public NsInfo(Visibility visibility, String name, String hierachy) {
-            this.visibility = visibility;
-            this.name = name;
-            this.hierachy = hierachy;
-        }
-
-        @Override
-        public String toString() {
-            return String.format("%s", visibility);
-        }
-    }
-
     private final Map<String, NsInfo> nsInfo = new HashMap<>();
     private final Set<String> importSet = new HashSet<>();
     private final Deque<GrammarParser.NamespaceContext> currentNs = new ArrayDeque<>();
     private final Deque<URI> currentFile = new ArrayDeque<>();
-    private final Deque<Deque<String>> locals = new ArrayDeque<>();
+    private final Deque<Deque<LocalVar>> locals = new ArrayDeque<>();
     private final StringBuilder textBuf = new StringBuilder();
     private final StringBuilder pasteInclude = new StringBuilder();
     private final StringBuilder pasteTypedef = new StringBuilder();
@@ -94,6 +76,7 @@ public class Translator extends GrammarBaseVisitor<String> {
     private MangleScheme mangleScheme = MangleScheme.INTERNAL;
     private ProcState procState = ProcState.GEN_SYM;
     private String paramSeparator = ",";
+    private LocalVar currentVar = null;
 
     public Translator(final URI uri) {
         currentFile.add(uri);
@@ -260,7 +243,7 @@ public class Translator extends GrammarBaseVisitor<String> {
         for (int i = 0; i < ctx.getChildCount() - 2; i += 2) {
             final String pname = ctx.getChild(i).getText();
             final String iname = "_C0" + pname;
-            locals.peek().add(iname);
+            locals.peek().add(new LocalVar(iname, String.format(ts, "")));
             textBuf.append('_').append(pname);
             sb.append(String.format(ts, iname)).append(paramSeparator);
         }
@@ -275,7 +258,7 @@ public class Translator extends GrammarBaseVisitor<String> {
             textBuf.setLength(0);
             final String pname = visit(ctx.getChild(i));
             final String iname = "_C0" + pname;
-            locals.peek().add(iname);
+            locals.peek().add(new LocalVar(iname, String.format(ts, "")));
             sb.append(String.format(ts, iname)).append(textBuf).append(';');
         }
         return sb.deleteCharAt(sb.length() - 1).toString();
@@ -418,13 +401,60 @@ public class Translator extends GrammarBaseVisitor<String> {
     public String visitUnitFuncCall(GrammarParser.UnitFuncCallContext ctx) {
         mangleScheme = MangleScheme.MINUS_1;
         final String qualId = visit(ctx.n);
-        checkCallVisiblity(qualId);
+        checkCallVisibility(qualId);
         return qualId + "()";
     }
 
+    @Override
+    public String visitExtUnitCall(GrammarParser.ExtUnitCallContext ctx) {
+        final String varName = "_C0" + ctx.n.getText();
+        checkCallVisibility(varName);
+        if (!currentVar.type.matches("\\w+")) {
+            throw new RuntimeException("Extension function calls only support non-pointer types");
+        }
+        final String synthName = currentVar.type + ctx.s.getText() + "_of";
+        checkCallVisibility(synthName);
+        return synthName + "(" + varName + ")";
+    }
+
+    @Override
+    public String visitExtFuncCall(GrammarParser.ExtFuncCallContext ctx) {
+        final String varName = "_C0" + ctx.n.getText();
+        checkCallVisibility(varName);
+        if (!currentVar.type.matches("\\w+")) {
+            throw new RuntimeException("Extension function calls only support non-pointer types");
+        }
+
+        final String old = textBuf.toString();
+        textBuf.setLength(0);
+        final String param = ctx.p.stream().map(this::visit).collect(Collectors.joining(","));
+        final String vparam = ctx.v.stream().map(this::visit).collect(Collectors.joining());
+        final String synthName = currentVar.type + ctx.s.getText() + "_of" + textBuf.toString();
+        checkCallVisibility(synthName);
+        final StringBuilder ret = new StringBuilder()
+                .append(synthName)
+                .append('(')
+                .append(varName);
+        if (!param.trim().isEmpty()) {
+            ret.append(',').append(param);
+        }
+        ret.append(vparam).append(')');
+        textBuf.setLength(0);
+        textBuf.append(old);
+        return ret.toString();
+    }
+
     private boolean isNameVisible(final String qualId) {
-        if (locals.stream().anyMatch(scope -> scope.contains(qualId))) {
-            return true;
+        for (final Iterator<Deque<LocalVar>> rit = locals.descendingIterator();
+                rit.hasNext();) {
+            for (final Iterator<LocalVar> vars = rit.next().descendingIterator();
+                    vars.hasNext();) {
+                final LocalVar cvar = vars.next();
+                if (cvar.sameName(qualId)) {
+                    currentVar = cvar;
+                    return true;
+                }
+            }
         }
 
         final NsInfo info = nsInfo.get(qualId);
@@ -453,7 +483,7 @@ public class Translator extends GrammarBaseVisitor<String> {
         }
     }
 
-    private void checkCallVisiblity(final String qualId) {
+    private void checkCallVisibility(final String qualId) {
         if (!isNameVisible(qualId)) {
             throw new RuntimeException("Illegal referencing to "
                     + nsInfo.get(qualId).name + " from "
@@ -473,7 +503,7 @@ public class Translator extends GrammarBaseVisitor<String> {
         final String param = ctx.p.stream().map(this::visit).collect(Collectors.joining(","));
         final String vparam = ctx.v.stream().map(this::visit).collect(Collectors.joining());
         final String qualId = nsPortion + textBuf.toString();
-        checkCallVisiblity(qualId);
+        checkCallVisibility(qualId);
         final String ret = qualId + "(" + param + vparam + ")";
         textBuf.setLength(0);
         textBuf.append(old);
@@ -609,10 +639,10 @@ public class Translator extends GrammarBaseVisitor<String> {
                 sb.append('_').append(ctx.getChild(i).getText());
             }
             final String qualId = sb.toString();
-            checkCallVisiblity(qualId);
+            checkCallVisibility(qualId);
             return qualId;
         }
-        checkCallVisiblity(sb.toString());
+        checkCallVisibility(sb.toString());
         return sb.append(ctx.t.stream()
                 .map(e -> e.getChild(0).getText() + "_C0" + e.n.getText())
                 .collect(Collectors.joining())).toString();

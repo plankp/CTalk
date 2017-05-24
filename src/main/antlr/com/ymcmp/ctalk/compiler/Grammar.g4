@@ -603,6 +603,8 @@ retVal
 funcCall
     : n=namespace p+=parameter+ v+=variadicParam* # paramFuncCall
     | n=namespace LPAREN RPAREN # unitFuncCall
+    | n=IDENT MEM_VAL s=IDENT LPAREN RPAREN # extUnitCall
+    | n=IDENT MEM_VAL s=IDENT p+=parameter+ v+=variadicParam* # extFuncCall
     ;
 
 parameter
