@@ -53,15 +53,41 @@ module std::string
     #{
         Creates a std::string from a C string. The string itself is copied so
         any subsequent modifications to the C string will not affect the
-        current std::string.
+        current std::string. If the C string is null or has a length of zero,
+        then it has the same effect as `std::string::new()`.
     #}
     export function new:std::string from:[const char]
-        ret : std::string;
+        if from == null
+            return _::new();
+        end;
+
         len = _::length str:from : size_t;
+        if len == 0
+            return _::new();
+        end;
+
+        ret : std::string;
         ret.data = std::memory::alloc num:len + 1 size:sizeof char;
         ret.len = len;
         ret.cap = len;
         _::copy dest:ret.data src:from count:len + 1;
+        return ret;
+    end;
+
+    #{
+        Creates a std::string with the specified capacity. This string will have
+        a length of zero. If capacity is zero, then it has the same effect as
+        `std::string::new()`.
+    #}
+    export function new:std::string cap:size_t
+        if cap == 0
+            return _::new();
+        end;
+
+        ret : std::string;
+        ret.len = 0;
+        ret.cap = cap;
+        ret.data = std::memory::alloc num:cap + 1 size:sizeof char;
         return ret;
     end;
 
@@ -206,5 +232,37 @@ module std::string
         tmpc = of->cap : size_t;
         of->cap = with->cap;
         with->cap = tmpc;
+    end;
+
+    #{
+        Empties the string.
+        Note: The capacity is not affected.
+    #}
+    export function clear:void of:[std::string]
+        of->len = 0;
+        [0 of->data] = 0; # Set the null-terminate byte corrctly
+    end;
+
+    #{
+        Erases a number of characters from a specified starting point.
+        Note: If the number of characters is more than the length of the
+        string, then it will end at the end of the string.
+    #}
+    export function erase:void of:[std::string], index, count:size_t
+        if count == 0
+            return;
+        end;
+
+        max_rem : size_t;
+        if count > of->len - index
+            max_rem = index;
+        else
+            max_rem = count;
+        end;
+
+        _::move dest:of->data + index
+                src:of->data + index + count
+                count: of->len -= max_rem;
+        [of->len of->data] = 0; # Set the null-terminate byte correctly
     end;
 end;
