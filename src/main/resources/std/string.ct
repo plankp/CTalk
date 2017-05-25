@@ -28,7 +28,6 @@ import std::memory;
 module std
 
     export struct string
-
         data     : [char];
         len, cap : size_t;
     end;
@@ -40,6 +39,9 @@ module std::string
     hidden extern function copy:any_t dest:any_t, src:const any_t, count:size_t "memcpy";
     hidden extern function move:any_t dest:any_t, src:const any_t, count:size_t "memmove";
 
+    #{
+        Creates an empty std::string with length and capacity of zero.
+    #}
     export function new:std::string()
         ret : std::string;
         ret.data = null;
@@ -48,6 +50,11 @@ module std::string
         return ret;
     end;
 
+    #{
+        Creates a std::string from a C string. The string itself is copied so
+        any subsequent modifications to the C string will not affect the
+        current std::string.
+    #}
     export function new:std::string from:[const char]
         ret : std::string;
         len = _::length str:from : size_t;
@@ -58,57 +65,146 @@ module std::string
         return ret;
     end;
 
-    export function delete of:std::string
-        std::memory::free ptr:of.data;
-        of.len = 0;
-        of.cap = 0;
+    #{
+        Deallocates a std::string.
+    #}
+    export function delete of:[std::string]
+        std::memory::free ptr:of->data;
+        of->len = 0;
+        of->cap = 0;
     end;
 
-    export function at:char of:std::string, index:size_t
-        if of.len > index
-            return [index of.data];
+    #{
+        Returns the character at a specified location.
+    #}
+    export function at:char of:[std::string], index:size_t
+        if of->len > index
+            return [index of->data];
         else
             return 0;
         end;
     end;
 
-    export function empty:bool of:std::string
-        return of.len == 0;
+    #{
+        Checks if string is empty
+    #}
+    export function empty:bool of:[std::string]
+        return of->len == 0;
     end;
 
-    export function length:size_t of:std::string
-        return of.len;
+    #{
+        Returns the length of the string
+    #}
+    export function length:size_t of:[std::string]
+        return of->len;
     end;
 
-    export function capacity:size_t of:std::string
-        return of.cap;
+    #{
+        Returns the capacity of the string
+    #}
+    export function capacity:size_t of:[std::string]
+        return of->cap;
     end;
 
-    export function data:[char] of:std::string
-        return of.data;
+    #{
+        Returns the underlying char buffer
+    #}
+    export function data:[char] of:[std::string]
+        return of->data;
     end;
 
-    export function front:char of:std::string
-        if of.len > 0
-            return [0 of.data];
+    #{
+        Returns the first character. '\0' is returned if string is too short.
+    #}
+    export function front:char of:[std::string]
+        if of->len > 0
+            return [0 of->data];
         else
             return 0;
         end;
     end;
 
-    export function back:char of:std::string
-        if of.len > 0
-            return [of.len - 1 of.data];
+    #{
+        Returns the last character. '\0' is returned if string is too short.
+
+        Note: In a case where the string has a length of 1, the first character
+        is the same as the last character.
+    #}
+    export function back:char of:[std::string]
+        if of->len > 0
+            return [of->len - 1 of->data];
         else
             return 0;
         end;
     end;
 
-    export function print:void of:std::string
-        std::io::print str:of.data;
+    #{
+        Ensures the underlying buffer has at least the specified new capacity.
+        If the new capacity is smaller than the length of the string,
+        `trim_to_size` is called and the capacity after this operation is not
+        guaranteed to be the specified capacity.
+
+        Returns:
+            false if new capacity was larger than the previous capacity and
+            the allocation process failed.
+    #}
+    export function reserve:bool of:[std::string], new_cap:size_t
+        if new_cap > of->cap
+            new_ptr : any_t;
+            new_ptr = std::memory::realloc
+                            ptr:of->data
+                            new_size:(new_cap + 1) * sizeof char;
+            if new_ptr == null
+                return false;
+            end;
+
+            of->cap = new_cap;
+            of->data = new_cap;
+        elseif of->len > new_cap
+            std::string::trim_to_size of:of;
+        end;
+        return true;
     end;
 
-    export function println:void of:std::string
-        std::io::printf fmt:"%s\n", of.data;
+    #{
+        Resizes the underlying buffer so the size of it is the same as the
+        length of the string.
+    #}
+    export function trim_to_size:void of:[std::string]
+        of->data = std::memory::realloc
+                            ptr:of->data
+                            new_size:(of->len + 1) * sizeof char;
+        of->cap = of->len;
+    end;
+
+    #{
+        Prints a string to stdout
+    #}
+    export function print:void of:[std::string]
+        std::io::print str:of->data;
+    end;
+
+    #{
+        Prints a string to stdout with newline
+    #}
+    export function println:void of:[std::string]
+        std::io::printf fmt:"%s\n", of->data;
+    end;
+
+    #{
+        Swaps two strings
+    #}
+    export function swap:void of, with:[std::string]
+        tmpd = of->data : [char];
+        of->data = with->data;
+        with->data = tmpd;
+
+        tmpl = of->len : size_t;
+        of->len = with->len;
+        with->len = tmpl;
+
+        tmpc = of->cap : size_t;
+        of->cap = with->cap;
+        with->cap = tmpc;
     end;
 end;

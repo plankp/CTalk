@@ -414,7 +414,7 @@ public class Translator extends GrammarBaseVisitor<String> {
         }
         final String synthName = currentVar.type + ctx.s.getText() + "_of";
         checkCallVisibility(synthName);
-        return synthName + "(" + varName + ")";
+        return synthName + "(&" + varName + ")";
     }
 
     @Override
@@ -434,6 +434,7 @@ public class Translator extends GrammarBaseVisitor<String> {
         final StringBuilder ret = new StringBuilder()
                 .append(synthName)
                 .append('(')
+                .append('&')
                 .append(varName);
         if (!param.trim().isEmpty()) {
             ret.append(',').append(param);
