@@ -175,19 +175,19 @@ module std::string
             false if new capacity was larger than the previous capacity and
             the allocation process failed.
     #}
-    export function reserve:bool of:[std::string], new_cap:size_t
-        if new_cap > of->cap
+    export function reserve:bool of:[std::string], cap:size_t
+        if cap > of->cap
             new_ptr : any_t;
             new_ptr = std::memory::realloc
                             ptr:of->data
-                            new_size:(new_cap + 1) * sizeof char;
+                            new_size:(cap + 1) * sizeof char;
             if new_ptr == null
                 return false;
             end;
 
-            of->cap = new_cap;
+            of->cap = cap;
             of->data = new_ptr;
-        elseif of->len > new_cap
+        elseif of->len > cap
             std::string::trim_to_size of:of;
         end;
         return true;
@@ -275,7 +275,7 @@ module std::string
             return;
         end;
 
-        _::reserve of:of new_cap:of->cap + count;
+        _::reserve of:of cap:of->cap + count;
         _::move dest:of->data + at + count
                 src:of->data + at
                 count:of->len - at;
@@ -283,5 +283,29 @@ module std::string
                 ch:ch
                 count:count;
         [of->len += count of->data] = 0;
+    end;
+
+    #{
+        Inserts a std::string `count` times at a specified index
+    #}
+    export function insert of:[std::string], str:std::string, at, count:size_t
+        if count == 0
+            return;
+        end;
+
+        dsp = count * str.len : size_t;
+        _::reserve of:of cap:of->cap + dsp;
+        _::move dest:of->data + at + dsp
+                src:of->data + at
+                count:of->len - at;
+
+        i : size_t;
+        for i = 0, count > i, i += 1
+            _::copy dest:of->data + at + str.len * i
+                    src:str.data
+                    count:str.len;
+        end;
+
+        [of->len += dsp of->data] = 0;
     end;
 end;
