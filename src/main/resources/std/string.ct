@@ -38,6 +38,7 @@ module std::string
     hidden extern function length:size_t str:[const char] "strlen";
     hidden extern function copy:any_t dest:any_t, src:const any_t, count:size_t "memcpy";
     hidden extern function move:any_t dest:any_t, src:const any_t, count:size_t "memmove";
+    hidden extern function mset:any_t buf:any_t, ch:int, count:size_t "memset";
 
     #{
         Creates an empty std::string with length and capacity of zero.
@@ -185,7 +186,7 @@ module std::string
             end;
 
             of->cap = new_cap;
-            of->data = new_cap;
+            of->data = new_ptr;
         elseif of->len > new_cap
             std::string::trim_to_size of:of;
         end;
@@ -196,7 +197,7 @@ module std::string
         Resizes the underlying buffer so the size of it is the same as the
         length of the string.
     #}
-    export function trim_to_size:void of:[std::string]
+    export function trim_to_size of:[std::string]
         of->data = std::memory::realloc
                             ptr:of->data
                             new_size:(of->len + 1) * sizeof char;
@@ -206,21 +207,21 @@ module std::string
     #{
         Prints a string to stdout
     #}
-    export function print:void of:[std::string]
+    export function print of:[std::string]
         std::io::print str:of->data;
     end;
 
     #{
         Prints a string to stdout with newline
     #}
-    export function println:void of:[std::string]
+    export function println of:[std::string]
         std::io::printf fmt:"%s\n", of->data;
     end;
 
     #{
         Swaps two strings
     #}
-    export function swap:void of, with:[std::string]
+    export function swap of, with:[std::string]
         tmpd = of->data : [char];
         of->data = with->data;
         with->data = tmpd;
@@ -238,7 +239,7 @@ module std::string
         Empties the string.
         Note: The capacity is not affected.
     #}
-    export function clear:void of:[std::string]
+    export function clear of:[std::string]
         of->len = 0;
         [0 of->data] = 0; # Set the null-terminate byte corrctly
     end;
@@ -248,7 +249,7 @@ module std::string
         Note: If the number of characters is more than the length of the
         string, then it will end at the end of the string.
     #}
-    export function erase:void of:[std::string], index, count:size_t
+    export function erase of:[std::string], index, count:size_t
         if count == 0
             return;
         end;
@@ -264,5 +265,23 @@ module std::string
                 src:of->data + index + count
                 count: of->len -= max_rem;
         [of->len of->data] = 0; # Set the null-terminate byte correctly
+    end;
+
+    #{
+        Inserts a character `count` times at a specified index
+    #}
+    export function insert of:[std::string], ch:char, at, count:size_t
+        if count == 0
+            return;
+        end;
+
+        _::reserve of:of new_cap:of->cap + count;
+        _::move dest:of->data + at + count
+                src:of->data + at
+                count:of->len - at;
+        _::mset buf:of->data + at
+                ch:ch
+                count:count;
+        [of->len += count of->data] = 0;
     end;
 end;
