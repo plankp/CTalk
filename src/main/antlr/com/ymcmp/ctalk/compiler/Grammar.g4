@@ -486,6 +486,7 @@ lesserTypeId
     | (integral | floatPoint) # stdTypeId
     | n=namespace # nsTypeId
     | LSQUARE c=arrayBounds? t=typeId RSQUARE # ptrTypeId
+    | p=defParams MEM_PTR r=typeId # funcTypeId
     ;
 
 typeId
@@ -652,11 +653,6 @@ dereference
 funcRef
     : n=namespace t+=memberAccess* s+=funcSel*
     ;
-
-/*
-foo::bar::f:a:b:c => _C2foo3bar3f_a_b_c
-foo::bar->f:a:b:c => _C1foo3bar._C0f_a_b_c
-*/
 
 funcSel
     : COLON s=IDENT

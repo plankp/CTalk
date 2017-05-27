@@ -377,6 +377,22 @@ public class Translator extends GrammarBaseVisitor<String> {
     }
 
     @Override
+    public String visitFuncTypeId(GrammarParser.FuncTypeIdContext ctx) {
+        final String old = textBuf.toString();
+        textBuf.setLength(0);
+        paramSeparator = ",";
+        // Create dummy scope
+        locals.add(new ArrayDeque<>());
+        final String p = visit(ctx.p);
+        final String sel = textBuf.toString();
+        locals.removeFirst();
+        textBuf.setLength(0);
+        textBuf.append(old);
+        final String retType = visit(ctx.r);
+        return String.format(retType, "(* %s" + sel + ")" + p);
+    }
+
+    @Override
     public String visitArrayBounds(GrammarParser.ArrayBoundsContext ctx) {
         final String part = visit(ctx.getChild(0));
         if (ctx.getChildCount() > 1) {
