@@ -70,4 +70,6 @@ module std::io
     end;
 
     export extern function printf:int file:_::file, fmt:[const char], list:std::arg::list "vfprintf";
+
+    export extern function printf:int buffer:[char], size:size_t, fmt:[const char], list:std::arg::list "vsnprintf";
 end;

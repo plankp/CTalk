@@ -268,6 +268,30 @@ module std::string
     end;
 
     #{
+        Appends a character to the end of the string
+    #}
+    export function push_back of:[std::string], ch:char
+        _::insert of:of ch:ch at:of->len count:1;
+    end;
+
+    #{
+        Removes the last character from the string. Does not do anything if
+        string is empty
+    #}
+    export function pop_back of:[std::string]
+        if of->len > 0
+            [of->len -= 1 of->data] = 0;
+        end;
+    end;
+
+    #{
+        Appends a character `count` times
+    #}
+    export function append of:[std::string], ch:char, count:size_t
+        _::insert of:of ch:ch at:of->len count:count;
+    end;
+
+    #{
         Inserts a character `count` times at a specified index
     #}
     export function insert of:[std::string], ch:char, at, count:size_t
@@ -283,6 +307,13 @@ module std::string
                 ch:ch
                 count:count;
         [of->len += count of->data] = 0;
+    end;
+
+    #{
+        Appends a std::string `count` times
+    #}
+    export function append of:[std::string], str:std::string, count:size_t
+        _::insert of:of str:str at:of->len count:count;
     end;
 
     #{
@@ -307,5 +338,55 @@ module std::string
         end;
 
         [of->len += dsp of->data] = 0;
+    end;
+
+    #{
+        Appends a formatted string
+    #}
+    export function append of:[std::string], fmt:[const char], ...
+        args : std::arg::list;
+        std::arg::start list:args from:fmt;
+        _::insert of:of at:of->len fmt:fmt list:args;
+        std::arg::free list:args;
+    end;
+
+    #{
+        Inserts a formatted string at a specified index
+    #}
+    export function insert of:[std::string], at:size_t, fmt:[const char], ...
+        args : std::arg::list;
+        std::arg::start list:args from:fmt;
+        _::insert of:of at:at fmt:fmt list:args;
+        std::arg::free list:args;
+    end;
+
+    hidden function insert of:[std::string], at:size_t, fmt:[const char],
+                           list:std::arg::list
+        args1, args2 : std::arg::list;
+        std::arg::copy dest:args1 src:list;
+        std::arg::copy dest:args2 src:args1;
+
+        alloc_size : size_t;
+        alloc_size = std::io::printf buffer:null
+                                     size:0
+                                     fmt:fmt
+                                     list:args1;
+        std::arg::free list:args1;
+
+        _::reserve of:of cap:of->cap + alloc_size;
+        _::move dest:of->data + at + alloc_size
+                src:of->data + at
+                count:of->len - at;
+
+        t = [at + alloc_size of->data] : char;
+
+        std::io::printf buffer:of->data + at
+                        size:alloc_size + 1
+                        fmt:fmt
+                        list:args2;
+        std::arg::free list:args2;
+
+        [at + alloc_size of->data] = t;
+        [of->len += alloc_size of->data] = 0;
     end;
 end;
