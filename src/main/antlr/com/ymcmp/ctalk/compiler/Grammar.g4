@@ -441,6 +441,7 @@ topLevel
     | defExternal SEMI
     | defStruct SEMI
     | defUnion SEMI
+    | defModuleVar SEMI
     ;
 
 defModule
@@ -512,6 +513,10 @@ defVariadic
 
 defParam
     : IDENT (COMMA IDENT)* COLON typeId
+    ;
+
+defModuleVar
+    : localInit (COMMA localInit)* COLON typeId
     ;
 
 defLocal
@@ -645,8 +650,16 @@ dereference
     ;
 
 funcRef
-    : namespace (COLON IDENT)*
-    | namespace t+=memberAccess+
+    : n=namespace t+=memberAccess* s+=funcSel*
+    ;
+
+/*
+foo::bar::f:a:b:c => _C2foo3bar3f_a_b_c
+foo::bar->f:a:b:c => _C1foo3bar._C0f_a_b_c
+*/
+
+funcSel
+    : COLON s=IDENT
     ;
 
 memberAccess

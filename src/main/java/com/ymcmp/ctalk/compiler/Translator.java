@@ -251,6 +251,37 @@ public class Translator extends GrammarBaseVisitor<String> {
     }
 
     @Override
+    public String visitDefModuleVar(GrammarParser.DefModuleVarContext ctx) {
+        final String ts = visit(ctx.getChild(ctx.getChildCount() - 1));
+        final StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < ctx.getChildCount() - 2; i += 2) {
+            textBuf.setLength(0);
+            final String pname = visit(ctx.getChild(i));
+            mangleScheme = MangleScheme.HIERACHY;
+            final String hname = visitNamespace(currentNs.peek()) + "/" + pname;
+            mangleScheme = MangleScheme.INTERNAL;
+            final String iname = visitNamespace(currentNs.peek()) + pname;
+            nsInfo.put(iname, new NsInfo(visibility, iname, hname));
+            sb.append(String.format(ts, iname)).append(textBuf).append(';');
+        }
+        if (procState == ProcState.GEN_SYM) {
+            switch (visibility) {
+            case EXPORT:
+            case INTERNAL:
+                head.append("extern ");
+                break;
+            case HIDDEN:
+                head.append("static ");
+                break;
+            default:
+                throw new RuntimeException("Unhandled visibility module variable of " + visibility);
+            }
+            head.append(sb).append('\n');
+        }
+        return "";
+    }
+
+    @Override
     public String visitDefLocal(GrammarParser.DefLocalContext ctx) {
         final String ts = visit(ctx.getChild(ctx.getChildCount() - 1));
         final StringBuilder sb = new StringBuilder();
@@ -634,11 +665,12 @@ public class Translator extends GrammarBaseVisitor<String> {
     @Override
     public String visitFuncRef(GrammarParser.FuncRefContext ctx) {
         mangleScheme = MangleScheme.MINUS_1;
-        final StringBuilder sb = new StringBuilder(visit(ctx.getChild(0)));
-        if (ctx.t == null) {
-            for (int i = 2; i < ctx.getChildCount(); i += 2) {
-                sb.append('_').append(ctx.getChild(i).getText());
-            }
+        final StringBuilder sb = new StringBuilder(visit(ctx.n));
+        final String sel = ctx.s.isEmpty() ? "" : ctx.s.stream()
+                .map(this::visit)
+                .collect(Collectors.joining("_", "_", ""));
+        if (ctx.t.isEmpty()) {
+            sb.append(sel);
             final String qualId = sb.toString();
             checkCallVisibility(qualId);
             return qualId;
@@ -646,7 +678,13 @@ public class Translator extends GrammarBaseVisitor<String> {
         checkCallVisibility(sb.toString());
         return sb.append(ctx.t.stream()
                 .map(e -> e.getChild(0).getText() + "_C0" + e.n.getText())
-                .collect(Collectors.joining())).toString();
+                .collect(Collectors.joining()))
+                .append(sel).toString();
+    }
+
+    @Override
+    public String visitFuncSel(GrammarParser.FuncSelContext ctx) {
+        return ctx.s.getText();
     }
 
     @Override
@@ -1017,9 +1055,11 @@ public class Translator extends GrammarBaseVisitor<String> {
                                                     "if (" + visit(ctx.c) + ")\n{\n",
                                                     "\n}//")));
         locals.removeLast();
-        tmp.append(ctx.a.stream()
-                .map(this::visit)
-                .collect(Collectors.joining("\n", "\n", "")));
+        if (!ctx.a.isEmpty()) {
+            tmp.append(ctx.a.stream()
+                    .map(this::visit)
+                    .collect(Collectors.joining("\n", "\n", "")));
+        }
         if (ctx.e != null) {
             tmp.append('\n').append(visit(ctx.e));
         }
