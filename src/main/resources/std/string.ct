@@ -101,17 +101,17 @@ module std::string
         of->cap = 0;
     end;
 
-	#{
-		Creates a clone of the current string. Note: The capacity of the new
-		string is shrinked to the same as its length.
-	#}
-	export function copy:std::string of:[std::string]
-		ret : std::string;
-		ret.cap = ret.len = of->len;
-		ret.data = std::memory::alloc num:ret.cap + 1 size:sizeof char;
+    #{
+        Creates a clone of the current string. Note: The capacity of the new
+        string is shrinked to the same as its length.
+    #}
+    export function copy:std::string of:[std::string]
+        ret : std::string;
+        ret.cap = ret.len = of->len;
+        ret.data = std::memory::alloc num:ret.cap + 1 size:sizeof char;
         _::copy dest:ret.data src:of->data count:ret.len + 1;
-		return ret;
-	end;
+        return ret;
+    end;
 
     #{
         Returns the character at a specified location.
@@ -121,6 +121,15 @@ module std::string
             return [index of->data];
         else
             return 0;
+        end;
+    end;
+
+    #{
+        Updates the character at a specified location.
+    #}
+    export function at of:[std::string], index:size_t, set:char
+        if of->len > index
+            [index of->data] = set;
         end;
     end;
 
