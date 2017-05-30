@@ -51,4 +51,44 @@ public class NsInfo implements Serializable {
     public String toString() {
         return String.format("%s", visibility);
     }
+
+    public static String toExternalName(String qualId) {
+        switch (qualId.substring(0, 2)) {
+        case "_T":
+            return qualId.substring(2);
+        case "_C":
+            break;
+        default:
+            return qualId;
+        }
+        final StringBuilder sb = new StringBuilder();
+        int idx = 2;
+        final char[] arr = qualId.toCharArray();
+        while (idx < arr.length && Character.isDigit(arr[idx])) {
+            int extLen = 0;
+            while (idx < arr.length && Character.isDigit(arr[idx])) {
+                extLen = extLen * 10 + Character.digit(arr[idx], 10);
+                ++idx;
+            }
+            sb.append(qualId.substring(idx, idx + extLen)).append("::");
+            idx += extLen;
+        }
+        sb.delete(sb.length() - 2, sb.length());
+
+        while (idx < arr.length && arr[idx] == '_') {
+            ++idx;
+            if (arr[idx] == 'v') {
+                sb.append("()");
+                break;
+            }
+            int extLen = 0;
+            while (idx < arr.length && Character.isDigit(arr[idx])) {
+                extLen = extLen * 10 + Character.digit(arr[idx], 10);
+                ++idx;
+            }
+            sb.append(':').append(qualId.substring(idx, idx + extLen));
+            idx += extLen;
+        }
+        return sb.toString();
+    }
 }

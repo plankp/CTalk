@@ -102,7 +102,8 @@ public class Translator extends GrammarBaseVisitor<String> {
         final String[] nameSel = nsPart[nsPart.length - 1].split(":");
         ent.append(nameSel[0].length()).append(nameSel[0]);
         for (int i = 1; i < nameSel.length; ++i) {
-            ent.append('_').append(nameSel[i]);
+            final String fragment = nameSel[i];
+            ent.append('_').append(fragment.length()).append(fragment);
         }
 
         final String entry = "int main (int argc, char **argv) { return " + ent.toString() + "(argc, argv); }";
@@ -206,6 +207,7 @@ public class Translator extends GrammarBaseVisitor<String> {
     @Override
     public String visitDefParams(GrammarParser.DefParamsContext ctx) {
         if (ctx.getChild(0).getText().equals("(")) {
+            textBuf.append(VOID_FUNC_ID);
             return "()";
         }
         final StringBuilder sb = new StringBuilder("(");
@@ -228,7 +230,7 @@ public class Translator extends GrammarBaseVisitor<String> {
             final String pname = ctx.getChild(i).getText();
             final String iname = "_C" + pname.length() + pname;
             locals.peek().add(new LocalVar(iname, String.format(ts, "")));
-            textBuf.append('_').append(pname);
+            textBuf.append('_').append(pname.length()).append(pname);
             sb.append(String.format(ts, iname)).append(paramSeparator);
         }
         return sb.deleteCharAt(sb.length() - 1).toString();
@@ -444,7 +446,7 @@ public class Translator extends GrammarBaseVisitor<String> {
     @Override
     public String visitUnitFuncCall(GrammarParser.UnitFuncCallContext ctx) {
         mangleScheme = MangleScheme.INTERNAL;
-        final String qualId = visit(ctx.n);
+        final String qualId = visit(ctx.n) + VOID_FUNC_ID;
         checkCallVisibility(qualId);
         return qualId + "()";
     }
@@ -458,10 +460,11 @@ public class Translator extends GrammarBaseVisitor<String> {
             throw new RuntimeException("Extension function calls only support non-pointer types");
         }
         final String rawFName = ctx.s.getText();
-        final String synthName = currentVar.type + rawFName.length() + rawFName + "_of";
+        final String synthName = currentVar.type + rawFName.length() + rawFName + EXT_FUNC_ID;
         checkCallVisibility(synthName);
         return synthName + "(&" + varName + ")";
     }
+    public static final String VOID_FUNC_ID = "_v";
 
     @Override
     public String visitExtFuncCall(GrammarParser.ExtFuncCallContext ctx) {
@@ -477,7 +480,7 @@ public class Translator extends GrammarBaseVisitor<String> {
         final String param = ctx.p.stream().map(this::visit).collect(Collectors.joining(","));
         final String vparam = ctx.v.stream().map(this::visit).collect(Collectors.joining());
         final String rawFName = ctx.s.getText();
-        final String synthName = currentVar.type + rawFName.length() + rawFName + "_of" + textBuf.toString();
+        final String synthName = currentVar.type + rawFName.length() + rawFName + EXT_FUNC_ID + textBuf.toString();
         checkCallVisibility(synthName);
         final StringBuilder ret = new StringBuilder()
                 .append(synthName)
@@ -492,6 +495,7 @@ public class Translator extends GrammarBaseVisitor<String> {
         textBuf.append(old);
         return ret.toString();
     }
+    public static final String EXT_FUNC_ID = "_2of";
 
     private boolean isNameVisible(final String qualId) {
         for (final Iterator<Deque<LocalVar>> rit = locals.descendingIterator();
@@ -508,7 +512,7 @@ public class Translator extends GrammarBaseVisitor<String> {
 
         final NsInfo info = nsInfo.get(qualId);
         if (info == null) {
-            throw new RuntimeException(qualId + " does not exist! Maybe you forgot to import?");
+            throw new RuntimeException(NsInfo.toExternalName(qualId) + " does not exist! Maybe you forgot to import?");
         }
 
         switch (info.visibility) {
@@ -535,7 +539,7 @@ public class Translator extends GrammarBaseVisitor<String> {
     private void checkCallVisibility(final String qualId) {
         if (!isNameVisible(qualId)) {
             throw new RuntimeException("Illegal referencing to "
-                    + nsInfo.get(qualId).name + " from "
+                    + NsInfo.toExternalName(qualId) + " from "
                     + (currentNs.peek() == null
                     ? "nameless module"
                     : ("module " + currentNs.peek().getText()))
@@ -561,7 +565,8 @@ public class Translator extends GrammarBaseVisitor<String> {
 
     @Override
     public String visitParameter(GrammarParser.ParameterContext ctx) {
-        textBuf.append('_').append(ctx.getChild(0).getText());
+        final String rawPName = ctx.getChild(0).getText();
+        textBuf.append('_').append(rawPName.length()).append(rawPName);
         return visit(ctx.getChild(2));
     }
 
@@ -892,12 +897,13 @@ public class Translator extends GrammarBaseVisitor<String> {
     public String visitDefMParams(GrammarParser.DefMParamsContext ctx) {
 
         if (ctx.getChild(0).getText().equals("(")) {
+            textBuf.append(VOID_FUNC_ID);
             return "()";
         }
         final StringBuilder sb = new StringBuilder("(");
         for (int i = 0; i < ctx.getChildCount(); i += 2) {
             final String name = ctx.getChild(i).getText();
-            textBuf.append('_').append(name);
+            textBuf.append('_').append(name.length()).append(name);
             sb.append(name).append(',');
         }
         if (ctx.v == null) {
