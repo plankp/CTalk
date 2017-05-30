@@ -53,7 +53,7 @@ import org.antlr.v4.runtime.tree.ParseTree;
 public class Translator extends GrammarBaseVisitor<String> {
 
     private enum MangleScheme {
-        INTERNAL, HIERACHY, MINUS_1, PLUS_1
+        INTERNAL, HIERACHY
     }
 
     private enum ProcState {
@@ -94,11 +94,16 @@ public class Translator extends GrammarBaseVisitor<String> {
         // demo::main:argc:argv => demo main:argc:argv
         final String[] nsPart = entryFuncId.split("::");
         final StringBuilder ent = new StringBuilder();
-        ent.append("_C").append(nsPart.length - 1);
+        ent.append("_C");
         for (int i = 0; i < nsPart.length - 1; ++i) {
-            ent.append(nsPart[i]).append(nsPart[i].length());
+            final String fragment = nsPart[i];
+            ent.append(fragment.length()).append(fragment);
         }
-        ent.append(nsPart[nsPart.length - 1].replaceAll(":", "_"));
+        final String[] nameSel = nsPart[nsPart.length - 1].split(":");
+        ent.append(nameSel[0].length()).append(nameSel[0]);
+        for (int i = 1; i < nameSel.length; ++i) {
+            ent.append('_').append(nameSel[i]);
+        }
 
         final String entry = "int main (int argc, char **argv) { return " + ent.toString() + "(argc, argv); }";
         return Arrays.stream(("#include <stdbool.h>\n#include <stddef.h>\n"
@@ -130,7 +135,7 @@ public class Translator extends GrammarBaseVisitor<String> {
     @Override
     public String visitNamespace(GrammarParser.NamespaceContext ctx) {
         if (ctx == null) {
-            return "_C0";
+            return "_C";
         }
         switch (mangleScheme) {
         case HIERACHY:
@@ -140,31 +145,9 @@ public class Translator extends GrammarBaseVisitor<String> {
             if (sec[0].equals("_")) {
                 sec = (currentNs.peek().getText() + ctx.getText().substring(1)).split("::");
             }
-            final StringBuilder sb = new StringBuilder("_C").append(sec.length);
+            final StringBuilder sb = new StringBuilder("_C");
             for (final String part : sec) {
-                sb.append(part).append(part.length());
-            }
-            return sb.toString();
-        }
-        case MINUS_1: {
-            String[] sec = ctx.getText().split("::");
-            if (sec[0].equals("_")) {
-                sec = (currentNs.peek().getText() + ctx.getText().substring(1)).split("::");
-            }
-            final StringBuilder sb = new StringBuilder("_C").append(sec.length - 1);
-            for (int i = 0; i < sec.length - 1; ++i) {
-                sb.append(sec[i]).append(sec[i].length());
-            }
-            return sb.append(sec[sec.length - 1]).toString();
-        }
-        case PLUS_1: {
-            String[] sec = ctx.getText().split("::");
-            if (sec[0].equals("_")) {
-                sec = (currentNs.peek().getText() + ctx.getText().substring(1)).split("::");
-            }
-            final StringBuilder sb = new StringBuilder("_C").append(sec.length + 1);
-            for (int i = 0; i < sec.length; ++i) {
-                sb.append(sec[i]).append(sec[i].length());
+                sb.append(part.length()).append(part);
             }
             return sb.toString();
         }
@@ -183,11 +166,12 @@ public class Translator extends GrammarBaseVisitor<String> {
         final String params = visit(ctx.p);
         // Parameters *MUST* be processed before name
         mangleScheme = MangleScheme.INTERNAL;
-        final String name = visitNamespace(currentNs.peek()) + ctx.n.getText() + textBuf.toString();
+        final String rawName = ctx.n.getText();
+        final String name = visitNamespace(currentNs.peek()) + rawName.length() + rawName + textBuf.toString();
         mangleScheme = MangleScheme.HIERACHY;
         {
             final String prior = currentNs.peek() == null ? "" : (currentNs.peek().getText() + "::");
-            nsInfo.put(name, new NsInfo(visibility, prior + ctx.n.getText(), visitNamespace(currentNs.peek())));
+            nsInfo.put(name, new NsInfo(visibility, prior + rawName.length() + rawName, visitNamespace(currentNs.peek())));
         }
         textBuf.setLength(0);
         textBuf.append(tmp);
@@ -242,7 +226,7 @@ public class Translator extends GrammarBaseVisitor<String> {
         final StringBuilder sb = new StringBuilder();
         for (int i = 0; i < ctx.getChildCount() - 2; i += 2) {
             final String pname = ctx.getChild(i).getText();
-            final String iname = "_C0" + pname;
+            final String iname = "_C" + pname.length() + pname;
             locals.peek().add(new LocalVar(iname, String.format(ts, "")));
             textBuf.append('_').append(pname);
             sb.append(String.format(ts, iname)).append(paramSeparator);
@@ -260,11 +244,16 @@ public class Translator extends GrammarBaseVisitor<String> {
             mangleScheme = MangleScheme.HIERACHY;
             final String hname = visitNamespace(currentNs.peek()) + "/" + pname;
             mangleScheme = MangleScheme.INTERNAL;
-            final String iname = visitNamespace(currentNs.peek()) + pname;
+            final String iname = visitNamespace(currentNs.peek()) + pname.length() + pname;
             nsInfo.put(iname, new NsInfo(visibility, iname, hname));
-            sb.append(String.format(ts, iname)).append(textBuf).append(';');
+            sb.append(String.format(ts, iname));
+            if (procState == ProcState.GEN_CODE) {
+                sb.append(textBuf);
+            }
+            sb.append(';');
         }
-        if (procState == ProcState.GEN_SYM) {
+        switch (procState) {
+        case GEN_SYM:
             switch (visibility) {
             case EXPORT:
             case INTERNAL:
@@ -277,6 +266,12 @@ public class Translator extends GrammarBaseVisitor<String> {
                 throw new RuntimeException("Unhandled visibility module variable of " + visibility);
             }
             head.append(sb).append('\n');
+            break;
+        case GEN_CODE:
+            head.append(sb).append('\n');
+            break;
+        default:
+            throw new RuntimeException("Unhandled process phase of " + procState + " when define module variables");
         }
         return "";
     }
@@ -288,7 +283,7 @@ public class Translator extends GrammarBaseVisitor<String> {
         for (int i = 0; i < ctx.getChildCount() - 2; i += 2) {
             textBuf.setLength(0);
             final String pname = visit(ctx.getChild(i));
-            final String iname = "_C0" + pname;
+            final String iname = "_C" + pname.length() + pname;
             locals.peek().add(new LocalVar(iname, String.format(ts, "")));
             sb.append(String.format(ts, iname)).append(textBuf).append(';');
         }
@@ -364,7 +359,9 @@ public class Translator extends GrammarBaseVisitor<String> {
     @Override
     public String visitNsTypeId(GrammarParser.NsTypeIdContext ctx) {
         mangleScheme = MangleScheme.INTERNAL;
-        return visit(ctx.n) + " %s";
+        final String t = visit(ctx.n);
+        checkCallVisibility(t);
+        return t + " %s";
     }
 
     @Override
@@ -446,7 +443,7 @@ public class Translator extends GrammarBaseVisitor<String> {
 
     @Override
     public String visitUnitFuncCall(GrammarParser.UnitFuncCallContext ctx) {
-        mangleScheme = MangleScheme.MINUS_1;
+        mangleScheme = MangleScheme.INTERNAL;
         final String qualId = visit(ctx.n);
         checkCallVisibility(qualId);
         return qualId + "()";
@@ -454,19 +451,22 @@ public class Translator extends GrammarBaseVisitor<String> {
 
     @Override
     public String visitExtUnitCall(GrammarParser.ExtUnitCallContext ctx) {
-        final String varName = "_C0" + ctx.n.getText();
+        final String rawName = ctx.n.getText();
+        final String varName = "_C" + rawName.length() + rawName;
         checkCallVisibility(varName);
         if (!currentVar.type.matches("\\w+")) {
             throw new RuntimeException("Extension function calls only support non-pointer types");
         }
-        final String synthName = currentVar.type + ctx.s.getText() + "_of";
+        final String rawFName = ctx.s.getText();
+        final String synthName = currentVar.type + rawFName.length() + rawFName + "_of";
         checkCallVisibility(synthName);
         return synthName + "(&" + varName + ")";
     }
 
     @Override
     public String visitExtFuncCall(GrammarParser.ExtFuncCallContext ctx) {
-        final String varName = "_C0" + ctx.n.getText();
+        final String rawName = ctx.n.getText();
+        final String varName = "_C" + rawName.length() + rawName;
         checkCallVisibility(varName);
         if (!currentVar.type.matches("\\w+")) {
             throw new RuntimeException("Extension function calls only support non-pointer types");
@@ -476,7 +476,8 @@ public class Translator extends GrammarBaseVisitor<String> {
         textBuf.setLength(0);
         final String param = ctx.p.stream().map(this::visit).collect(Collectors.joining(","));
         final String vparam = ctx.v.stream().map(this::visit).collect(Collectors.joining());
-        final String synthName = currentVar.type + ctx.s.getText() + "_of" + textBuf.toString();
+        final String rawFName = ctx.s.getText();
+        final String synthName = currentVar.type + rawFName.length() + rawFName + "_of" + textBuf.toString();
         checkCallVisibility(synthName);
         final StringBuilder ret = new StringBuilder()
                 .append(synthName)
@@ -546,7 +547,7 @@ public class Translator extends GrammarBaseVisitor<String> {
     public String visitParamFuncCall(GrammarParser.ParamFuncCallContext ctx) {
         final String old = textBuf.toString();
         textBuf.setLength(0);
-        mangleScheme = MangleScheme.MINUS_1;
+        mangleScheme = MangleScheme.INTERNAL;
         final String nsPortion = visit(ctx.n);
         final String param = ctx.p.stream().map(this::visit).collect(Collectors.joining(","));
         final String vparam = ctx.v.stream().map(this::visit).collect(Collectors.joining());
@@ -680,7 +681,7 @@ public class Translator extends GrammarBaseVisitor<String> {
 
     @Override
     public String visitFuncRef(GrammarParser.FuncRefContext ctx) {
-        mangleScheme = MangleScheme.MINUS_1;
+        mangleScheme = MangleScheme.INTERNAL;
         final StringBuilder sb = new StringBuilder(visit(ctx.n));
         final String sel = ctx.s.isEmpty() ? "" : ctx.s.stream()
                 .map(this::visit)
@@ -693,7 +694,10 @@ public class Translator extends GrammarBaseVisitor<String> {
         }
         checkCallVisibility(sb.toString());
         return sb.append(ctx.t.stream()
-                .map(e -> e.getChild(0).getText() + "_C0" + e.n.getText())
+                .map(e -> {
+                    final String rawName = e.n.getText();
+                    return e.getChild(0).getText() + "_C" + rawName.length() + rawName;
+                })
                 .collect(Collectors.joining()))
                 .append(sel).toString();
     }
@@ -812,11 +816,12 @@ public class Translator extends GrammarBaseVisitor<String> {
         locals.removeLast();
         // Parameters *MUST* be processed before name
         mangleScheme = MangleScheme.INTERNAL;
-        final String name = visitNamespace(currentNs.peek()) + ctx.n.getText() + textBuf.toString();
+        final String rawName = ctx.n.getText();
+        final String name = visitNamespace(currentNs.peek()) + rawName.length() + rawName + textBuf.toString();
         mangleScheme = MangleScheme.HIERACHY;
         {
             final String prior = currentNs.peek() == null ? "" : (currentNs.peek().getText() + "::");
-            nsInfo.put(name, new NsInfo(visibility, prior + ctx.n.getText(), visitNamespace(currentNs.peek())));
+            nsInfo.put(name, new NsInfo(visibility, prior + rawName.length() + rawName, visitNamespace(currentNs.peek())));
         }
         textBuf.setLength(0);
         textBuf.append(tmp);
@@ -863,11 +868,12 @@ public class Translator extends GrammarBaseVisitor<String> {
             final String params = ctx.p == null ? "" : visit(ctx.p);
             // Parameters *MUST* be processed before name
             mangleScheme = MangleScheme.INTERNAL;
-            final String name = visitNamespace(currentNs.peek()) + ctx.n.getText() + textBuf.toString();
+            final String rawName = ctx.n.getText();
+            final String name = visitNamespace(currentNs.peek()) + rawName.length() + rawName + textBuf.toString();
             mangleScheme = MangleScheme.HIERACHY;
             {
                 final String prior = currentNs.peek() == null ? "" : (currentNs.peek().getText() + "::");
-                nsInfo.put(name, new NsInfo(visibility, prior + ctx.n.getText(), visitNamespace(currentNs.peek())));
+                nsInfo.put(name, new NsInfo(visibility, prior + rawName.length() + rawName, visitNamespace(currentNs.peek())));
             }
             textBuf.setLength(0);
             textBuf.append(tmp);
@@ -908,13 +914,13 @@ public class Translator extends GrammarBaseVisitor<String> {
             String externTypeName = ctx.e.getText();
             externTypeName = externTypeName.substring(1, externTypeName.length() - 1);
 
-            mangleScheme = MangleScheme.PLUS_1;
+            mangleScheme = MangleScheme.INTERNAL;
             final String tname = ctx.n.getText();
-            final String name = visitNamespace(currentNs.peek()) + tname + tname.length();
+            final String name = visitNamespace(currentNs.peek()) + tname.length() + tname;
             mangleScheme = MangleScheme.HIERACHY;
             {
                 final String prior = currentNs.peek() == null ? "" : (currentNs.peek().getText() + "::");
-                nsInfo.put(name, new NsInfo(visibility, prior + ctx.n.getText(), visitNamespace(currentNs.peek())));
+                nsInfo.put(name, new NsInfo(visibility, prior + tname.length() + tname, visitNamespace(currentNs.peek())));
             }
             pasteTypedef.append("typedef ").append(externTypeName).append(' ').append(name).append(";\n");
         }
@@ -924,13 +930,13 @@ public class Translator extends GrammarBaseVisitor<String> {
     @Override
     public String visitDefStruct(GrammarParser.DefStructContext ctx) {
         if (procState == ProcState.GEN_SYM) {
-            mangleScheme = MangleScheme.PLUS_1;
+            mangleScheme = MangleScheme.INTERNAL;
             final String tname = ctx.n.getText();
-            final String name = visitNamespace(currentNs.peek()) + tname + tname.length();
+            final String name = visitNamespace(currentNs.peek()) + tname.length() + tname;
             mangleScheme = MangleScheme.HIERACHY;
             {
                 final String prior = currentNs.peek() == null ? "" : (currentNs.peek().getText() + "::");
-                nsInfo.put(name, new NsInfo(visibility, prior + ctx.n.getText(), visitNamespace(currentNs.peek())));
+                nsInfo.put(name, new NsInfo(visibility, prior + tname.length() + tname, visitNamespace(currentNs.peek())));
             }
             // Provide dummy scope
             locals.add(new ArrayDeque<>());
@@ -952,13 +958,13 @@ public class Translator extends GrammarBaseVisitor<String> {
     @Override
     public String visitDefUnion(GrammarParser.DefUnionContext ctx) {
         if (procState == ProcState.GEN_SYM) {
-            mangleScheme = MangleScheme.PLUS_1;
+            mangleScheme = MangleScheme.INTERNAL;
             final String tname = ctx.n.getText();
-            final String name = visitNamespace(currentNs.peek()) + tname + tname.length();
+            final String name = visitNamespace(currentNs.peek()) + tname.length() + tname;
             mangleScheme = MangleScheme.HIERACHY;
             {
                 final String prior = currentNs.peek() == null ? "" : (currentNs.peek().getText() + "::");
-                nsInfo.put(name, new NsInfo(visibility, prior + ctx.n.getText(), visitNamespace(currentNs.peek())));
+                nsInfo.put(name, new NsInfo(visibility, prior + tname.length() + tname, visitNamespace(currentNs.peek())));
             }
             // Provide dummy scope
             locals.add(new ArrayDeque<>());
