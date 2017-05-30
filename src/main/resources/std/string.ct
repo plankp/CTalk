@@ -36,9 +36,6 @@ end;
 module std::string
 
     hidden extern function length:size_t str:[const char] "strlen";
-    hidden extern function copy:any_t dest:any_t, src:const any_t, count:size_t "memcpy";
-    hidden extern function move:any_t dest:any_t, src:const any_t, count:size_t "memmove";
-    hidden extern function mset:any_t buf:any_t, ch:int, count:size_t "memset";
 
     #{
         Creates an empty std::string with length and capacity of zero.
@@ -71,7 +68,7 @@ module std::string
         ret.data = std::memory::alloc num:len + 1 size:sizeof char;
         ret.len = len;
         ret.cap = len;
-        _::copy dest:ret.data src:from count:len + 1;
+        std::memory::copy dest:ret.data src:from count:len + 1;
         return ret;
     end;
 
@@ -109,7 +106,7 @@ module std::string
         ret : std::string;
         ret.cap = ret.len = of->len;
         ret.data = std::memory::alloc num:ret.cap + 1 size:sizeof char;
-        _::copy dest:ret.data src:of->data count:ret.len + 1;
+        std::memory::copy dest:ret.data src:of->data count:ret.len + 1;
         return ret;
     end;
 
@@ -282,9 +279,9 @@ module std::string
             max_rem = count;
         end;
 
-        _::move dest:of->data + index
-                src:of->data + index + count
-                count: of->len -= max_rem;
+        std::memory::move dest:of->data + index
+                          src:of->data + index + count
+                          count: of->len -= max_rem;
         [of->len of->data] = 0; # Set the null-terminate byte correctly
     end;
 
@@ -321,12 +318,12 @@ module std::string
         end;
 
         _::reserve of:of cap:of->cap + count;
-        _::move dest:of->data + at + count
-                src:of->data + at
-                count:of->len - at;
-        _::mset buf:of->data + at
-                ch:ch
-                count:count;
+        std::memory::move dest:of->data + at + count
+                          src:of->data + at
+                          count:of->len - at;
+        std::memory::set buf:of->data + at
+                         ch:ch
+                         count:count;
         [of->len += count of->data] = 0;
     end;
 
@@ -347,15 +344,15 @@ module std::string
 
         dsp = count * str.len : size_t;
         _::reserve of:of cap:of->cap + dsp;
-        _::move dest:of->data + at + dsp
-                src:of->data + at
-                count:of->len - at;
+        std::memory::move dest:of->data + at + dsp
+                          src:of->data + at
+                          count:of->len - at;
 
         i : size_t;
         for i = 0, count > i, i += 1
-            _::copy dest:of->data + at + str.len * i
-                    src:str.data
-                    count:str.len;
+            std::memory::copy dest:of->data + at + str.len * i
+                              src:str.data
+                              count:str.len;
         end;
 
         [of->len += dsp of->data] = 0;
@@ -395,9 +392,9 @@ module std::string
         std::arg::free list:args1;
 
         _::reserve of:of cap:of->cap + alloc_size;
-        _::move dest:of->data + at + alloc_size
-                src:of->data + at
-                count:of->len - at;
+        std::memory::move dest:of->data + at + alloc_size
+                          src:of->data + at
+                          count:of->len - at;
 
         t = [at + alloc_size of->data] : char;
 

@@ -21,6 +21,7 @@
    SOFTWARE. #}
 
 extern <stdlib.h>;
+extern <string.h>;
 
 module std::memory
 
@@ -33,4 +34,10 @@ module std::memory
     export extern function realloc:any_t ptr:any_t, new_size:size_t "realloc";
 
     export extern function free ptr:any_t "free";
+
+    export extern function copy:any_t dest:any_t, src:[const char], count:size_t "memcpy";
+
+    export extern function move:any_t dest:any_t, src:[const char], count:size_t "memmove";
+
+    export extern function set:any_t buf:any_t, ch:int, count:size_t "memset";
 end;
